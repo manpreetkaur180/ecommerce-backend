@@ -3,6 +3,7 @@ package main
 import (
 	"ecommerce-backend/internal/cart"
 	"ecommerce-backend/internal/database"
+	"ecommerce-backend/internal/order"
 	"ecommerce-backend/internal/product"
 	"ecommerce-backend/internal/user"
 	"github.com/gofiber/fiber/v2"
@@ -18,6 +19,8 @@ func main() {
 		&product.Product{},
 		&cart.Cart{},
 		&cart.CartItem{},
+		&order.Order{},
+    	&order.OrderItem{},
 	)
 
 	//USERS
@@ -41,6 +44,13 @@ func main() {
 	cartHandler := cart.NewHandler(cartService)
 
 	cart.RegisterRoutes(app, cartHandler)
+
+	//orders
+	orderRepo := order.NewRepository(db)
+	orderService := order.NewService(orderRepo, cartRepo)
+	orderHandler := order.NewHandler(orderService)
+
+	order.RegisterRoutes(app, orderHandler)
 
 	app.Listen(":3000")
 } // package main
