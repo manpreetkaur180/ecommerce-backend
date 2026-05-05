@@ -1,10 +1,10 @@
 package main
 
 import (
+	"ecommerce-backend/internal/cart"
 	"ecommerce-backend/internal/database"
 	"ecommerce-backend/internal/product"
 	"ecommerce-backend/internal/user"
-
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -16,6 +16,8 @@ func main() {
 	db.AutoMigrate(
 		&user.User{},
 		&product.Product{},
+		&cart.Cart{},
+		&cart.CartItem{},
 	)
 
 	//USERS
@@ -32,6 +34,13 @@ func main() {
 	productHandler := product.NewHandler(productService)
 
 	product.RegisterRoutes(app, productHandler)
+
+	//CART
+	cartRepo := cart.NewRepository(db)
+	cartService := cart.NewService(cartRepo)
+	cartHandler := cart.NewHandler(cartService)
+
+	cart.RegisterRoutes(app, cartHandler)
 
 	app.Listen(":3000")
 } // package main
