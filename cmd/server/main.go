@@ -1,26 +1,40 @@
 package main
 
 import (
-    "ecommerce-backend/internal/database"
-    "ecommerce-backend/internal/user"
+	"ecommerce-backend/internal/database"
+	"ecommerce-backend/internal/product"
+	"ecommerce-backend/internal/user"
 
-    "github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
-    app := fiber.New()
+	app := fiber.New()
 
-    db := database.Connect()
-    db.AutoMigrate(&user.User{})
+	db := database.Connect()
 
-    userRepo := user.NewRepository(db)
-    userService := user.NewService(userRepo)
-    userHandler := user.NewHandler(userService)
+	db.AutoMigrate(
+		&user.User{},
+		&product.Product{},
+	)
 
-    user.RegisterRoutes(app, userHandler)
+	//USERS
+	userRepo := user.NewRepository(db)
+	userService := user.NewService(userRepo)
+	userHandler := user.NewHandler(userService)
 
-    app.Listen(":3000")
-}// package main
+	user.RegisterRoutes(app, userHandler)
+
+	//PRODUC    TS
+
+	productRepo := product.NewRepository(db)
+	productService := product.NewService(productRepo)
+	productHandler := product.NewHandler(productService)
+
+	product.RegisterRoutes(app, productHandler)
+
+	app.Listen(":3000")
+} // package main
 
 // import "github.com/gofiber/fiber/v2"
 
