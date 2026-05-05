@@ -13,3 +13,8 @@ func NewRepository(db *gorm.DB) *Repository {
 func (r *Repository) Create(user *User) error {
     return r.db.Create(user).Error
 }
+func (r *Repository) FindByEmail(email string) (*User, error) {
+    var user User
+    err := r.db.Where("email = ?", email).First(&user).Error
+    return &user, err
+}
