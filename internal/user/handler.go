@@ -23,3 +23,23 @@ func (h *Handler) CreateUser(c *fiber.Ctx) error {
 
     return c.JSON(user)
 }
+func (h *Handler) Login(c *fiber.Ctx) error {
+    var req LoginRequest
+
+    if err := c.BodyParser(&req); err != nil {
+        return c.Status(400).JSON(err)
+    }
+
+    user, err := h.service.LoginByEmail(req.Email)
+    if err != nil {
+        return c.Status(404).JSON(fiber.Map{
+            "error": "user not found",
+        })
+    }
+
+    return c.JSON(fiber.Map{
+        "id":    user.ID,
+        "name":  user.Name,
+        "email": user.Email,
+    })
+}
