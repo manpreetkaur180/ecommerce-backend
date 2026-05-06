@@ -8,7 +8,7 @@ type User struct {
 	Email      string    `gorm:"uniqueIndex;not null"`
 	Phone      string    `gorm:"uniqueIndex"`
 	Password   string    `gorm:"not null"`
-	IsVerified bool      `gorm:"default:false"`
+
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
