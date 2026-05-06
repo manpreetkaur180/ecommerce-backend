@@ -7,4 +7,5 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 	userRoutes := api.Group("/user")
 
 	userRoutes.Post("/register", handler.Register)
+	userRoutes.Post("/login", handler.Login)
 }

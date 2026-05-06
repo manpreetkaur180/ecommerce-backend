@@ -68,3 +68,37 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 
 	return &user, nil
 }
+
+func (s *Service) Login(req LoginRequest) (*User, error) {
+
+	// 1. require email or phone
+	if req.Email == "" && req.Phone == "" {
+		return nil, errors.New("email or phone is required")
+	}
+
+	if req.Password == "" {
+		return nil, errors.New("password is required")
+	}
+
+	// 2. find user
+	var user User
+	var err error
+
+	if req.Email != "" {
+		err = s.DB.Where("email = ?", req.Email).First(&user).Error
+	} else {
+		err = s.DB.Where("phone = ?", req.Phone).First(&user).Error
+	}
+
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	// 3. compare password
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	return &user, nil
+}
