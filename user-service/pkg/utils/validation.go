@@ -12,7 +12,15 @@ func NormalizeEmail(email string) string {
 }
 
 func NormalizePhone(phone string) string {
-	return strings.TrimSpace(phone)
+	phone = strings.TrimSpace(phone)
+
+	// remove all spaces
+	phone = strings.ReplaceAll(phone, " ", "")
+
+	// remove dashes (optional)
+	phone = strings.ReplaceAll(phone, "-", "")
+
+	return phone
 }
 
 // -------- EMAIL --------
