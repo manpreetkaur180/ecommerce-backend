@@ -13,5 +13,6 @@ func SuccessResponse(c *fiber.Ctx, code int, message string, data interface{}) e
 	return c.Status(code).JSON(fiber.Map{
 		"message": message,
 		"code":    code,
+		"data":data,
 	})
 }

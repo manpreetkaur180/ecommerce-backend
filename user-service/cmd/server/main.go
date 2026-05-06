@@ -22,8 +22,11 @@ func main() {
 	// migrate table
 	db.AutoMigrate(&user.User{})
 
+	// redis
+	rdb := config.ConnectRedis()
+
 	// init layers
-	userService := user.NewService(db)
+	userService := user.NewService(db, rdb)
 	userHandler := user.NewHandler(userService)
 
 	// register routes

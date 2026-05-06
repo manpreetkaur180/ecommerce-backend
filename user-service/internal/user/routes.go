@@ -13,7 +13,7 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 
 	// -------- RATE LIMIT CONFIG --------
 	authLimiter := limiter.New(limiter.Config{
-		Max:        3,
+		Max:        5,
 		Expiration: time.Minute,
 
 		// Custom response
@@ -25,7 +25,9 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 		},
 	})
 
-	// Apply limiter ONLY to sensitive routes
+
 	userRoutes.Post("/register", authLimiter, handler.Register)
 	userRoutes.Post("/login", authLimiter, handler.Login)
+	userRoutes.Post("/send-otp", authLimiter, handler.SendOTP)
+	userRoutes.Post("/login-otp", authLimiter, handler.LoginWithOTP)
 }

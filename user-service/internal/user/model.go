@@ -27,3 +27,12 @@ type LoginRequest struct {
 	Phone    string `json:"phone"`
 	Password string `json:"password"`
 }
+type OTPLoginRequest struct {
+	Email string `json:"email"`
+	Phone string `json:"phone"`
+	OTP   string `json:"otp"`
+}
+type OTPData struct {
+	Code    string
+	Expires time.Time
+}
