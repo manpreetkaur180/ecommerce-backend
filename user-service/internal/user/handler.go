@@ -1,6 +1,10 @@
 package user
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"user-service/pkg/utils"
+
+	"github.com/gofiber/fiber/v2"
+)
 
 type Handler struct {
 	Service *Service
@@ -10,44 +14,50 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{Service: service}
 }
 
+// -------- REGISTER --------
 func (h *Handler) Register(c *fiber.Ctx) error {
 	var req RegisterRequest
 
+	// parse request
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "invalid request body",
-		})
+		return utils.ErrorResponse(c, 400, "invalid request body")
 	}
 
+	// call service
 	user, err := h.Service.Register(req)
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return utils.ErrorResponse(c, 400, err.Error())
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Hi " + user.Name + ", successfully registered",
-	})
+	// success response
+	return utils.SuccessResponse(
+		c,
+		200,
+		"Hi "+user.Name+", successfully registered",
+		nil,
+	)
 }
 
+// -------- LOGIN --------
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
 
+	// parse request
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "invalid request body",
-		})
+		return utils.ErrorResponse(c, 400, "invalid request body")
 	}
 
+	// call service
 	user, err := h.Service.Login(req)
 	if err != nil {
-		return c.Status(401).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return utils.ErrorResponse(c, 401, err.Error())
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Hi " + user.Name + ", logged in successfully",
-	})
+	// success response
+	return utils.SuccessResponse(
+		c,
+		200,
+		"Hi "+user.Name+", logged in successfully",
+		nil,
+	)
 }
