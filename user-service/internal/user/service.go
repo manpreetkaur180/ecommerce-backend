@@ -3,18 +3,81 @@ package user
 import (
 	"errors"
 
+	"fmt"
+	"math/rand"
+	"user-service/config"
 	"user-service/pkg/utils"
 
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+
+	"time"
 )
 
 type Service struct {
 	DB *gorm.DB
+
+	RDB *redis.Client
 }
 
-func NewService(db *gorm.DB) *Service {
-	return &Service{DB: db}
+func NewService(db *gorm.DB, rdb *redis.Client) *Service {
+	return &Service{
+		DB:  db,
+		RDB: rdb,
+	}
+}
+func generateOTP() string {
+	return fmt.Sprintf("%04d", rand.Intn(10000))
+}
+func (s *Service) SendOTP(identifier string) (string, error) {
+	otp := generateOTP()
+
+	err := s.RDB.Set(
+		config.Ctx,
+		"otp:"+identifier,
+		otp,
+		5*time.Minute,
+	).Err()
+
+	if err != nil {
+		return "", err
+	}
+
+	return otp, nil
+}
+func (s *Service) VerifyOTP(identifier, otp string) error {
+	key := "otp:" + identifier
+
+	storedOTP, err := s.RDB.Get(config.Ctx, key).Result()
+	if err != nil {
+		return fmt.Errorf("otp expired or not found")
+	}
+
+	if storedOTP != otp {
+		return fmt.Errorf("invalid otp")
+	}
+
+	// delete after use
+	s.RDB.Del(config.Ctx, key)
+
+	return nil
+}
+func (s *Service) FindByIdentifier(email, phone string) (*User, error) {
+	var user User
+	var err error
+
+	if email != "" {
+		err = s.DB.Where("email = ?", email).First(&user).Error
+	} else {
+		err = s.DB.Where("phone = ?", phone).First(&user).Error
+	}
+
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	return &user, nil
 }
 
 func (s *Service) Register(req RegisterRequest) (*User, error) {

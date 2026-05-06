@@ -61,3 +61,93 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		nil,
 	)
 }
+func (h *Handler) SendOTP(c *fiber.Ctx) error {
+	var req LoginRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, 400, "invalid request body")
+	}
+
+	req.Email = utils.NormalizeEmail(req.Email)
+	req.Phone = utils.NormalizePhone(req.Phone)
+
+	if req.Email == "" && req.Phone == "" {
+		return utils.ErrorResponse(c, 400, "email or phone is required")
+	}
+
+	// validate format
+	if req.Email != "" {
+		if err := utils.ValidateEmail(req.Email); err != nil {
+			return utils.ErrorResponse(c, 400, err.Error())
+		}
+	}
+	if req.Phone != "" {
+		if err := utils.ValidatePhone(req.Phone); err != nil {
+			return utils.ErrorResponse(c, 400, err.Error())
+		}
+	}
+
+	identifier := req.Email
+	if identifier == "" {
+		identifier = req.Phone
+	}
+
+	_, err := h.Service.FindByIdentifier(req.Email, req.Phone)
+	if err != nil {
+		return utils.ErrorResponse(c, 400, "invalid request")
+	}
+
+	otp, err := h.Service.SendOTP(identifier)
+	if err != nil {
+		return utils.ErrorResponse(c, 500, "failed to send OTP")
+	}
+
+	return utils.SuccessResponse(
+	c,
+	200,
+	"OTP sent successfully",
+	fiber.Map{
+		"otp": otp,
+	},
+)
+
+}
+func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
+	var req OTPLoginRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, 400, "invalid request body")
+	}
+
+	req.Email = utils.NormalizeEmail(req.Email)
+	req.Phone = utils.NormalizePhone(req.Phone)
+
+	if req.Email == "" && req.Phone == "" {
+		return utils.ErrorResponse(c, 400, "email or phone is required")
+	}
+
+	if req.OTP == "" {
+		return utils.ErrorResponse(c, 400, "otp is required")
+	}
+
+	identifier := req.Email
+	if identifier == "" {
+		identifier = req.Phone
+	}
+
+	if err := h.Service.VerifyOTP(identifier, req.OTP); err != nil {
+		return utils.ErrorResponse(c, 400, err.Error())
+	}
+
+	user, err := h.Service.FindByIdentifier(req.Email, req.Phone)
+	if err != nil {
+		return utils.ErrorResponse(c, 400, "invalid request")
+	}
+
+	return utils.SuccessResponse(
+		c,
+		200,
+		"Hi "+user.Name+", logged in successfully",
+		nil,
+	)
+}
