@@ -3,19 +3,31 @@ package main
 import (
 	"log"
 	"os"
-	"github.com/joho/godotenv"
-	"user-service/config"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/joho/godotenv"
+
+	"user-service/config"
+	"user-service/internal/user"
 )
 
 func main() {
 	godotenv.Load()
+
 	app := fiber.New()
 
 	// connect DB
 	db := config.ConnectDB()
-	_ = db // for now
+
+	// migrate table
+	db.AutoMigrate(&user.User{})
+
+	// init layers
+	userService := user.NewService(db)
+	userHandler := user.NewHandler(userService)
+
+	// register routes
+	user.RegisterRoutes(app, userHandler)
 
 	// health route
 	app.Get("/health", func(c *fiber.Ctx) error {
