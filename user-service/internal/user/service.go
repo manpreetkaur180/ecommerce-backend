@@ -19,7 +19,11 @@ func NewService(db *gorm.DB) *Service {
 
 func (s *Service) Register(req RegisterRequest) (*User, error) {
 
-	// 1. basic validation
+	// 1. normalize input
+	req.Email = utils.NormalizeEmail(req.Email)
+	req.Phone = utils.NormalizePhone(req.Phone)
+
+	// 2. validate input
 	if req.Name == "" {
 		return nil, errors.New("name is required")
 	}
@@ -40,20 +44,20 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 		return nil, errors.New("passwords do not match")
 	}
 
-	// 2. check email exists
+	// 3. check existing email
 	var existing User
 	err := s.DB.Where("email = ?", req.Email).First(&existing).Error
 	if err == nil {
 		return nil, errors.New("email already exists")
 	}
 
-	// 3. hash password
+	// 4. hash password
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
 	}
 
-	// 4. create user
+	// 5. create user
 	user := User{
 		Name:     req.Name,
 		Email:    req.Email,

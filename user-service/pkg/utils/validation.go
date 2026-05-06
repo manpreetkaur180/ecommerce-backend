@@ -3,11 +3,24 @@ package utils
 import (
 	"errors"
 	"regexp"
+	"strings"
 	"unicode"
 )
 
-// Email validation
+func NormalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+func NormalizePhone(phone string) string {
+	return strings.TrimSpace(phone)
+}
+
+// -------- EMAIL --------
 func ValidateEmail(email string) error {
+	if email == "" {
+		return errors.New("email is required")
+	}
+
 	regex := `^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`
 	matched, _ := regexp.MatchString(regex, email)
 
@@ -17,7 +30,7 @@ func ValidateEmail(email string) error {
 	return nil
 }
 
-// Phone validation (simple 10-digit)
+// -------- PHONE --------
 func ValidatePhone(phone string) error {
 	if phone == "" {
 		return nil // optional
@@ -32,8 +45,12 @@ func ValidatePhone(phone string) error {
 	return nil
 }
 
-// Password validation
+// -------- PASSWORD --------
 func ValidatePassword(password string) error {
+	if password == "" {
+		return errors.New("password is required")
+	}
+
 	if len(password) < 8 {
 		return errors.New("password must be at least 8 characters")
 	}
