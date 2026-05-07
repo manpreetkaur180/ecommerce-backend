@@ -22,7 +22,7 @@ services:
     ports:
       - "3002:3002"
     env_file:
-    - ./message-service/.env
+      - ./message-service/.env
 
   user-db:
     image: postgres:15
@@ -39,3 +39,13 @@ services:
     container_name: user-redis
     ports:
       - "6379:6379"
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./notification-service/.env
+    depends_on:
+      - message-service
