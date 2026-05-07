@@ -14,6 +14,6 @@ This OTP is valid for 5 minutes.
 Do not share it with anyone.
 
 Thanks,
-Your App Team
+Wits Innovation Lab
 `, name, otp)
 }

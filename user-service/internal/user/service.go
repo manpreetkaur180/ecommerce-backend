@@ -181,6 +181,11 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 		return nil, errors.New("failed to create user")
 	}
 
+	go utils.NotifyUserRegistered(
+	user.Name,
+	user.Email,
+	user.Phone,
+)
 	return &user, nil
 }
 

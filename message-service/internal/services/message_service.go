@@ -5,6 +5,7 @@ import (
 
 	"message-service/internal/models"
 	"message-service/internal/templates"
+	"errors"
 )
 
 type Sender interface {
@@ -30,22 +31,26 @@ func (s *MessageService) SendEmail(
 	req models.EmailRequest,
 ) error {
 
-	content := ""
+	var content string
 
 	switch req.Template {
 
 	case "otp":
 
-		name := fmt.Sprintf("%v", req.Data["name"])
-		otp := fmt.Sprintf("%v", req.Data["otp"])
-
 		content = templates.OTPTemplate(
-			name,
-			otp,
+			req.Data["name"].(string),
+			req.Data["otp"].(string),
+		)
+
+	case "welcome":
+
+		content = templates.WelcomeTemplate(
+			req.Data["name"].(string),
 		)
 
 	default:
-		content = "No template found"
+
+		return errors.New("no template found")
 	}
 
 	message := models.Message{
