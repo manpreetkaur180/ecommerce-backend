@@ -62,6 +62,7 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	)
 }
 func (h *Handler) SendOTP(c *fiber.Ctx) error {
+
 	var req LoginRequest
 
 	if err := c.BodyParser(&req); err != nil {
@@ -75,42 +76,39 @@ func (h *Handler) SendOTP(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, 400, "email or phone is required")
 	}
 
-	// validate format
 	if req.Email != "" {
 		if err := utils.ValidateEmail(req.Email); err != nil {
 			return utils.ErrorResponse(c, 400, err.Error())
 		}
 	}
+
 	if req.Phone != "" {
 		if err := utils.ValidatePhone(req.Phone); err != nil {
 			return utils.ErrorResponse(c, 400, err.Error())
 		}
 	}
 
-	identifier := req.Email
-	if identifier == "" {
-		identifier = req.Phone
+	user, err := h.Service.FindByIdentifier(
+		req.Email,
+		req.Phone,
+	)
+
+	if err != nil {
+		return utils.ErrorResponse(c, 400, "user not found")
 	}
 
-	_, err := h.Service.FindByIdentifier(req.Email, req.Phone)
-	if err != nil {
-		return utils.ErrorResponse(c, 400, "invalid request")
-	}
+	err = h.Service.SendOTP(user)
 
-	otp, err := h.Service.SendOTP(identifier)
 	if err != nil {
-		return utils.ErrorResponse(c, 500, "failed to send OTP")
+		return utils.ErrorResponse(c, 500, "failed to send otp")
 	}
 
 	return utils.SuccessResponse(
-	c,
-	200,
-	"OTP sent successfully",
-	fiber.Map{
-		"otp": otp,
-	},
-)
-
+		c,
+		200,
+		"OTP sent successfully",
+		nil,
+	)
 }
 func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
 	var req OTPLoginRequest
