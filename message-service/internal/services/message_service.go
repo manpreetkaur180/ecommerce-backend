@@ -1,0 +1,90 @@
+package services
+
+import (
+	"fmt"
+
+	"message-service/internal/models"
+	"message-service/internal/templates"
+)
+
+type Sender interface {
+	Send(message models.Message) error
+}
+
+type MessageService struct {
+	emailSender Sender
+	smsSender   Sender
+}
+
+func NewMessageService(
+	emailSender Sender,
+	smsSender Sender,
+) *MessageService {
+	return &MessageService{
+		emailSender: emailSender,
+		smsSender:   smsSender,
+	}
+}
+
+func (s *MessageService) SendEmail(
+	req models.EmailRequest,
+) error {
+
+	content := ""
+
+	switch req.Template {
+
+	case "otp":
+
+		name := fmt.Sprintf("%v", req.Data["name"])
+		otp := fmt.Sprintf("%v", req.Data["otp"])
+
+		content = templates.OTPTemplate(
+			name,
+			otp,
+		)
+
+	default:
+		content = "No template found"
+	}
+
+	message := models.Message{
+		To:       req.To,
+		Subject:  req.Subject,
+		Content:  content,
+		Template: req.Template,
+	}
+
+	return s.emailSender.Send(message)
+}
+func (s *MessageService) SendSMS(
+	req models.SMSRequest,
+) error {
+
+	content := ""
+
+	switch req.Template {
+
+	case "otp":
+
+		otp := fmt.Sprintf(
+			"%v",
+			req.Data["otp"],
+		)
+
+		content = templates.OTPSMSTemplate(
+			otp,
+		)
+
+	default:
+		content = "No template found"
+	}
+
+	message := models.Message{
+		To:       req.To,
+		Content:  content,
+		Template: req.Template,
+	}
+
+	return s.smsSender.Send(message)
+}

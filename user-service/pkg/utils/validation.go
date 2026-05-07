@@ -12,12 +12,10 @@ func NormalizeEmail(email string) string {
 }
 
 func NormalizePhone(phone string) string {
+
 	phone = strings.TrimSpace(phone)
 
-	// remove all spaces
 	phone = strings.ReplaceAll(phone, " ", "")
-
-	// remove dashes (optional)
 	phone = strings.ReplaceAll(phone, "-", "")
 
 	return phone
@@ -44,7 +42,7 @@ func ValidatePhone(phone string) error {
 		return nil // optional
 	}
 
-	regex := `^[0-9]{10}$`
+	regex := `^\+[1-9]\d{7,14}$`
 	matched, _ := regexp.MatchString(regex, phone)
 
 	if !matched {
