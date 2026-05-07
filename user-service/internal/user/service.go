@@ -30,17 +30,17 @@ func NewService(db *gorm.DB, rdb *redis.Client) *Service {
 func generateOTP() string {
 	return fmt.Sprintf("%04d", rand.Intn(10000))
 }
-func (s *Service) SendOTP(user *User) error {
+func (s *Service) SendOTP(
+	user *User,
+	identifier string,
+	channel string,
+) error {
 
 	otp := generateOTP()
 
-	identifier := user.Email
+	fmt.Println("SAVING OTP FOR:", identifier)
+	fmt.Println("OTP:", otp)
 
-	if identifier == "" {
-		identifier = user.Phone
-	}
-
-	// Store OTP in Redis
 	err := s.RDB.Set(
 		config.Ctx,
 		"otp:"+identifier,
@@ -52,21 +52,26 @@ func (s *Service) SendOTP(user *User) error {
 		return err
 	}
 
-	// Send email via message-service
-	if user.Email != "" {
+	// -------- EMAIL OTP --------
+	if channel == "email" {
 
-		err = utils.SendOTPEmail(
+		return utils.SendOTPEmail(
 			user.Name,
 			user.Email,
 			otp,
 		)
-
-		if err != nil {
-			return err
-		}
 	}
 
-	return nil
+	// -------- SMS OTP --------
+	if channel == "phone" {
+
+		return utils.SendOTPSMS(
+			user.Phone,
+			otp,
+		)
+	}
+
+	return fmt.Errorf("invalid otp channel")
 }
 func (s *Service) VerifyOTP(identifier, otp string) error {
 	key := "otp:" + identifier
@@ -79,7 +84,8 @@ func (s *Service) VerifyOTP(identifier, otp string) error {
 	if storedOTP != otp {
 		return fmt.Errorf("invalid otp")
 	}
-
+	fmt.Println("VERIFYING OTP FOR:", identifier)
+fmt.Println("INPUT OTP:", otp)
 	// delete after use
 	s.RDB.Del(config.Ctx, key)
 

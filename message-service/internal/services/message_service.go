@@ -12,12 +12,17 @@ type Sender interface {
 }
 
 type MessageService struct {
-	sender Sender
+	emailSender Sender
+	smsSender   Sender
 }
 
-func NewMessageService(sender Sender) *MessageService {
+func NewMessageService(
+	emailSender Sender,
+	smsSender Sender,
+) *MessageService {
 	return &MessageService{
-		sender: sender,
+		emailSender: emailSender,
+		smsSender:   smsSender,
 	}
 }
 
@@ -50,5 +55,36 @@ func (s *MessageService) SendEmail(
 		Template: req.Template,
 	}
 
-	return s.sender.Send(message)
+	return s.emailSender.Send(message)
+}
+func (s *MessageService) SendSMS(
+	req models.SMSRequest,
+) error {
+
+	content := ""
+
+	switch req.Template {
+
+	case "otp":
+
+		otp := fmt.Sprintf(
+			"%v",
+			req.Data["otp"],
+		)
+
+		content = templates.OTPSMSTemplate(
+			otp,
+		)
+
+	default:
+		content = "No template found"
+	}
+
+	message := models.Message{
+		To:       req.To,
+		Content:  content,
+		Template: req.Template,
+	}
+
+	return s.smsSender.Send(message)
 }

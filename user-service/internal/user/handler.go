@@ -97,7 +97,20 @@ func (h *Handler) SendOTP(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, 400, "user not found")
 	}
 
-	err = h.Service.SendOTP(user)
+	channel := "email"
+
+	identifier := req.Email
+
+	if req.Phone != "" {
+		channel = "phone"
+		identifier = req.Phone
+	}
+
+	err = h.Service.SendOTP(
+		user,
+		identifier,
+		channel,
+	)
 
 	if err != nil {
 		return utils.ErrorResponse(c, 500, "failed to send otp")
@@ -129,6 +142,7 @@ func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
 	}
 
 	identifier := req.Email
+
 	if identifier == "" {
 		identifier = req.Phone
 	}
