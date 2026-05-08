@@ -29,4 +29,11 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 	userRoutes.Post("/send-otp", authLimiter, handler.SendOTP)
 	userRoutes.Post("/login-otp", authLimiter, handler.LoginWithOTP)
 	userRoutes.Get("/verify-email", handler.VerifyEmail)
+	userRoutes.Post("/forgot-password", authLimiter, handler.ForgotPassword)
+	userRoutes.Get("/verify-reset-password", handler.VerifyResetPassword)
+	userRoutes.Get("/reset-password", handler.ResetPasswordForm)
+	userRoutes.Post("/reset-password", handler.ResetPassword)
+	userRoutes.Post("/update-password", authLimiter, handler.RequestUpdatePassword)
+	userRoutes.Get("/update-password", handler.UpdatePasswordForm)
+	userRoutes.Post("/update-password/confirm", handler.ConfirmUpdatePassword)
 }

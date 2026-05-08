@@ -355,3 +355,249 @@ func (s *Service) VerifyEmail(
 
 	return nil
 }
+
+func (s *Service) ForgotPassword(email string) error {
+	email = utils.NormalizeEmail(email)
+	if err := utils.ValidateEmail(email); err != nil {
+		return err
+	}
+
+	var user User
+	if err := s.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		return errors.New("user not found")
+	}
+
+	rawToken := generateVerificationToken()
+	hashedToken := hashToken(rawToken)
+
+	verification := PasswordResetVerification{
+		UserID:    user.ID,
+		TokenHash: hashedToken,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+	}
+
+	if err := s.DB.Create(&verification).Error; err != nil {
+		return errors.New("failed to create reset verification")
+	}
+
+	verifyLink := fmt.Sprintf(
+		"%s/api/v1/user/verify-reset-password?token=%s",
+		publicUserServiceURL(),
+		rawToken,
+	)
+
+	if err := utils.SendForgotPasswordVerificationEmail(
+		user.Name,
+		user.Email,
+		verifyLink,
+	); err != nil {
+		return errors.New("failed to send verification email")
+	}
+
+	return nil
+}
+
+func (s *Service) VerifyResetPasswordRequest(rawToken string) error {
+	if rawToken == "" {
+		return errors.New("token required")
+	}
+
+	hashedToken := hashToken(rawToken)
+
+	var verification PasswordResetVerification
+	if err := s.DB.Where("token_hash = ?", hashedToken).First(&verification).Error; err != nil {
+		return errors.New("invalid verification token")
+	}
+
+	if time.Now().After(verification.ExpiresAt) {
+		return errors.New("verification token expired")
+	}
+
+	var user User
+	if err := s.DB.First(&user, verification.UserID).Error; err != nil {
+		return errors.New("user not found")
+	}
+
+	// create reset token (separate from verification token)
+	rawResetToken := generateVerificationToken()
+	hashedResetToken := hashToken(rawResetToken)
+
+	reset := PasswordReset{
+		UserID:    user.ID,
+		TokenHash: hashedResetToken,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+	}
+
+	if err := s.DB.Create(&reset).Error; err != nil {
+		return errors.New("failed to create reset token")
+	}
+
+	// invalidate verification token
+	s.DB.Delete(&verification)
+
+	resetLink := fmt.Sprintf(
+		"%s/api/v1/user/reset-password?token=%s",
+		publicUserServiceURL(),
+		rawResetToken,
+	)
+
+	if err := utils.SendResetPasswordEmail(
+		user.Name,
+		user.Email,
+		resetLink,
+	); err != nil {
+		return errors.New("failed to send reset email")
+	}
+
+	return nil
+}
+
+func (s *Service) ResetPassword(rawToken, newPassword, confirmPassword string) error {
+	if rawToken == "" {
+		return errors.New("token required")
+	}
+	if newPassword == "" {
+		return errors.New("new password is required")
+	}
+	if confirmPassword == "" {
+		return errors.New("confirm password is required")
+	}
+	if newPassword != confirmPassword {
+		return errors.New("passwords do not match")
+	}
+	if err := utils.ValidatePassword(newPassword); err != nil {
+		return err
+	}
+
+	hashedToken := hashToken(rawToken)
+
+	var reset PasswordReset
+	if err := s.DB.Where("token_hash = ?", hashedToken).First(&reset).Error; err != nil {
+		return errors.New("invalid reset token")
+	}
+	if time.Now().After(reset.ExpiresAt) {
+		return errors.New("reset token expired")
+	}
+
+	var user User
+	if err := s.DB.First(&user, reset.UserID).Error; err != nil {
+		return errors.New("user not found")
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), 10)
+	if err != nil {
+		return errors.New("failed to hash password")
+	}
+
+	user.Password = string(hashed)
+
+	if err := s.DB.Save(&user).Error; err != nil {
+		return errors.New("failed to update password")
+	}
+
+	// invalidate reset token after use
+	s.DB.Delete(&reset)
+
+	return nil
+}
+
+func (s *Service) RequestUpdatePassword(email string) error {
+	email = utils.NormalizeEmail(email)
+	if err := utils.ValidateEmail(email); err != nil {
+		return err
+	}
+
+	var user User
+	if err := s.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		return errors.New("user not found")
+	}
+
+	if !user.IsVerified {
+		return errors.New("please verify your email before updating password")
+	}
+
+	rawToken := generateVerificationToken()
+	hashedToken := hashToken(rawToken)
+
+	update := PasswordUpdate{
+		UserID:    user.ID,
+		TokenHash: hashedToken,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+	}
+
+	if err := s.DB.Create(&update).Error; err != nil {
+		return errors.New("failed to create update token")
+	}
+
+	updateLink := fmt.Sprintf(
+		"%s/api/v1/user/update-password?token=%s",
+		publicUserServiceURL(),
+		rawToken,
+	)
+
+	if err := utils.SendUpdatePasswordEmail(
+		user.Name,
+		user.Email,
+		updateLink,
+	); err != nil {
+		return errors.New("failed to send update password email")
+	}
+
+	return nil
+}
+
+func (s *Service) ConfirmUpdatePassword(rawToken, oldPassword, newPassword, confirmNewPassword string) error {
+	if rawToken == "" {
+		return errors.New("token required")
+	}
+	if oldPassword == "" {
+		return errors.New("old password is required")
+	}
+	if newPassword == "" {
+		return errors.New("new password is required")
+	}
+	if confirmNewPassword == "" {
+		return errors.New("confirm new password is required")
+	}
+	if newPassword != confirmNewPassword {
+		return errors.New("passwords do not match")
+	}
+	if err := utils.ValidatePassword(newPassword); err != nil {
+		return err
+	}
+
+	hashedToken := hashToken(rawToken)
+
+	var update PasswordUpdate
+	if err := s.DB.Where("token_hash = ?", hashedToken).First(&update).Error; err != nil {
+		return errors.New("invalid update token")
+	}
+	if time.Now().After(update.ExpiresAt) {
+		return errors.New("update token expired")
+	}
+
+	var user User
+	if err := s.DB.First(&user, update.UserID).Error; err != nil {
+		return errors.New("user not found")
+	}
+	if !user.IsVerified {
+		return errors.New("please verify your email before updating password")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(oldPassword)); err != nil {
+		return errors.New("old password is incorrect")
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), 10)
+	if err != nil {
+		return errors.New("failed to hash password")
+	}
+
+	user.Password = string(hashed)
+	if err := s.DB.Save(&user).Error; err != nil {
+		return errors.New("failed to update password")
+	}
+
+	s.DB.Delete(&update)
+	return nil
+}
