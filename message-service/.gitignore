@@ -2,6 +2,8 @@
 bin/
 *.exe
 *.out
+go.mod
+go.sum
 
 # Env files
 .env

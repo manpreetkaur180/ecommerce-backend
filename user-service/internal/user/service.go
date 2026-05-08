@@ -1,10 +1,14 @@
 package user
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
-
 	"fmt"
+	"log"
 	"math/rand"
+	"os"
+	"strings"
 	"user-service/config"
 	"user-service/pkg/utils"
 
@@ -30,6 +34,31 @@ func NewService(db *gorm.DB, rdb *redis.Client) *Service {
 func generateOTP() string {
 	return fmt.Sprintf("%04d", rand.Intn(10000))
 }
+
+func generateVerificationToken() string {
+	return fmt.Sprintf(
+		"%d%d",
+		time.Now().UnixNano(),
+		rand.Intn(100000),
+	)
+}
+
+func hashToken(token string) string {
+
+	hash := sha256.Sum256([]byte(token))
+
+	return hex.EncodeToString(hash[:])
+}
+
+func publicUserServiceURL() string {
+	baseURL := os.Getenv("PUBLIC_USER_SERVICE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:3001"
+	}
+
+	return strings.TrimRight(baseURL, "/")
+}
+
 func (s *Service) SendOTP(
 	user *User,
 	identifier string,
@@ -55,11 +84,16 @@ func (s *Service) SendOTP(
 	// -------- EMAIL OTP --------
 	if channel == "email" {
 
-		return utils.SendOTPEmail(
+		if err := utils.PublishOTPEmail(
 			user.Name,
 			user.Email,
 			otp,
-		)
+		); err != nil {
+			return err
+		}
+
+		log.Println("Published OTP email event for", user.Email)
+		return nil
 	}
 
 	// -------- SMS OTP --------
@@ -182,30 +216,50 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 		return nil, errors.New("failed to create user")
 	}
 
-	// generate verification token
-	rawToken := utils.GenerateToken()
-	hashedToken := utils.HashToken(rawToken)
+	go func(user User) {
+		if err := utils.PublishUserRegistered(
+			user.Name,
+			user.Email,
+			user.Phone,
+		); err != nil {
+			log.Println("Failed to publish user registered event:", err)
+			return
+		}
 
-	// store verification record
-	verification := EmailVerification{
-	UserID:    user.ID,
-	TokenHash: hashedToken,
-	ExpiresAt: time.Now().Add(24 * time.Hour),
-	Used:      false,
-	}
+		log.Println("Published user registered event for", user.Email)
 
-	if err := s.DB.Create(&verification).Error; err != nil {
-		return nil, errors.New("failed to create verification")
-	}
+		time.Sleep(25 * time.Second)
 
-	// send verification email via message service
-	go utils.SendEmailVerification(
-	user.Email,
-	user.Name,
-	rawToken,
-	)
+		rawToken := generateVerificationToken()
 
-	s.DB.Create(&verification)
+		hashedToken := hashToken(rawToken)
+
+		verification := EmailVerification{
+			UserID:    user.ID,
+			TokenHash: hashedToken,
+			ExpiresAt: time.Now().Add(24 * time.Hour),
+		}
+
+		if err := s.DB.Create(&verification).Error; err != nil {
+			log.Println("Failed to create email verification token:", err)
+			return
+		}
+
+		verifyLink := fmt.Sprintf(
+			"%s/api/v1/user/verify-email?token=%s",
+			publicUserServiceURL(),
+			rawToken,
+		)
+		if err := utils.PublishVerificationEmail(
+			user.Name,
+			user.Email,
+			verifyLink,
+		); err != nil {
+			log.Println("Failed to send verification email:", err)
+		}
+
+		log.Println("Published verification email event for", user.Email)
+	}(user)
 	return &user, nil
 }
 
@@ -249,86 +303,24 @@ func (s *Service) Login(req LoginRequest) (*User, error) {
 	if err := query.First(&user).Error; err != nil {
 		return nil, errors.New("invalid credentials")
 	}
+	if !user.IsVerified {
+		return nil, errors.New("please verify your email before login")
+	}
 
 	// 4. verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
-	if !user.IsVerified {
-		return nil, errors.New("email not verified")
-	}	
-
 	return &user, nil
 }
-
-func (s *Service) VerifyEmail(token string) error {
-
-	hashed := utils.HashToken(token)
-
-	var verification EmailVerification
-
-	err := s.DB.Where("token_hash = ? AND used = false", hashed).
-		First(&verification).Error
-
-	if err != nil {
-		return errors.New("invalid or expired token")
-	}
-
-	if time.Now().After(verification.ExpiresAt) {
-		return errors.New("token expired")
-	}
-
-	// mark token used
-	s.DB.Model(&verification).Update("used", true)
-
-	// mark user verified
-	s.DB.Model(&User{}).
-		Where("id = ?", verification.UserID).
-		Update("is_verified", true)
-
-	return nil
-}
-func (s *Service) ForgotPassword(
-	email string,
-) error {
-
-	user, err := s.FindByIdentifier(email, "")
-
-	if err != nil {
-		return errors.New("user not found")
-	}
-
-	rawToken := utils.GenerateToken()
-
-	hashedToken := utils.HashToken(rawToken)
-
-	resetVerification := PasswordResetVerification{
-		UserID:    user.ID,
-		TokenHash: hashedToken,
-		ExpiresAt: time.Now().Add(15 * time.Minute),
-	}
-
-	s.DB.Create(&resetVerification)
-
-	verifyLink := fmt.Sprintf(
-	"https://a15b-115-245-207-91.ngrok-free.app/api/v1/user/verify-reset?token=%s",
-	rawToken,
-)
-
-	return utils.SendForgotPasswordVerificationEmail(
-		user.Name,
-		user.Email,
-		verifyLink,
-	)
-}
-func (s *Service) VerifyResetRequest(
+func (s *Service) VerifyEmail(
 	rawToken string,
 ) error {
 
-	hashedToken := utils.HashToken(rawToken)
+	hashedToken := hashToken(rawToken)
 
-	var verification PasswordResetVerification
+	var verification EmailVerification
 
 	err := s.DB.Where(
 		"token_hash = ?",
@@ -336,13 +328,11 @@ func (s *Service) VerifyResetRequest(
 	).First(&verification).Error
 
 	if err != nil {
-		return errors.New("invalid token")
+		return errors.New("invalid verification token")
 	}
 
-	if time.Now().After(
-		verification.ExpiresAt,
-	) {
-		return errors.New("token expired")
+	if time.Now().After(verification.ExpiresAt) {
+		return errors.New("verification token expired")
 	}
 
 	var user User
@@ -355,213 +345,13 @@ func (s *Service) VerifyResetRequest(
 		return errors.New("user not found")
 	}
 
-	rawResetToken := utils.GenerateToken()
+	user.IsVerified = true
 
-	hashedResetToken := utils.HashToken(
-		rawResetToken,
-	)
-
-	reset := PasswordReset{
-		UserID:    user.ID,
-		TokenHash: hashedResetToken,
-		ExpiresAt: time.Now().Add(15 * time.Minute),
+	if err := s.DB.Save(&user).Error; err != nil {
+		return errors.New("failed to verify user")
 	}
-
-	s.DB.Create(&reset)
-
-resetLink := fmt.Sprintf(
-	"https://a15b-115-245-207-91.ngrok-free.app/api/v1/user/reset-password-page?token=%s",
-	rawResetToken,
-)
-
-	utils.SendResetPasswordEmail(
-		user.Name,
-		user.Email,
-		resetLink,
-	)
 
 	s.DB.Delete(&verification)
-
-	return nil
-}
-func (s *Service) ResetPassword(
-	req ResetPasswordRequest,
-) error {
-
-	if req.NewPassword == "" {
-		return errors.New(
-			"new password required",
-		)
-	}
-
-	if req.NewPassword != req.ConfirmPassword {
-		return errors.New(
-			"passwords do not match",
-		)
-	}
-
-	hashedToken := utils.HashToken(req.Token)
-
-	var reset PasswordReset
-
-	err := s.DB.Where(
-		"token_hash = ?",
-		hashedToken,
-	).First(&reset).Error
-
-	if err != nil {
-		return errors.New(
-			"invalid reset token",
-		)
-	}
-
-	if time.Now().After(reset.ExpiresAt) {
-		return errors.New(
-			"reset token expired",
-		)
-	}
-
-	var user User
-
-	if err := s.DB.First(
-		&user,
-		reset.UserID,
-	).Error; err != nil {
-
-		return errors.New(
-			"user not found",
-		)
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword(
-		[]byte(req.NewPassword),
-		10,
-	)
-
-	if err != nil {
-		return errors.New(
-			"failed to hash password",
-		)
-	}
-
-	user.Password = string(hashedPassword)
-
-	if err := s.DB.Save(&user).Error; err != nil {
-		return errors.New(
-			"failed to update password",
-		)
-	}
-
-	s.DB.Delete(&reset)
-
-	return nil
-}
-func (s *Service) SendUpdatePasswordLink(
-	email string,
-) error {
-
-	user, err := s.FindByIdentifier(email, "")
-
-	if err != nil {
-		return errors.New("user not found")
-	}
-
-	rawToken := utils.GenerateToken()
-
-	hashedToken := utils.HashToken(rawToken)
-
-	reset := PasswordReset{
-		UserID:    user.ID,
-		TokenHash: hashedToken,
-		ExpiresAt: time.Now().Add(15 * time.Minute),
-	}
-
-	s.DB.Create(&reset)
-
-	updateLink := fmt.Sprintf(
-	"https://a15b-115-245-207-91.ngrok-free.app/api/v1/user/update-password-page?token=%s",
-	rawToken,
-)
-
-	return utils.SendUpdatePasswordEmail(
-		user.Name,
-		user.Email,
-		updateLink,
-	)
-}
-
-func (s *Service) UpdatePassword(
-	req UpdatePasswordConfirmRequest,
-) error {
-
-	if req.OldPassword == "" {
-		return errors.New("old password required")
-	}
-
-	if req.NewPassword == "" {
-		return errors.New("new password required")
-	}
-
-	if req.NewPassword != req.ConfirmNewPassword {
-		return errors.New("passwords do not match")
-	}
-
-	if err := utils.ValidatePassword(req.NewPassword); err != nil {
-		return err
-	}
-
-	hashedToken := utils.HashToken(req.Token)
-
-	var reset PasswordReset
-
-	err := s.DB.Where(
-		"token_hash = ?",
-		hashedToken,
-	).First(&reset).Error
-
-	if err != nil {
-		return errors.New("invalid update token")
-	}
-
-	if time.Now().After(reset.ExpiresAt) {
-		return errors.New("update token expired")
-	}
-
-	var user User
-
-	if err := s.DB.First(
-		&user,
-		reset.UserID,
-	).Error; err != nil {
-
-		return errors.New("user not found")
-	}
-
-	err = bcrypt.CompareHashAndPassword(
-		[]byte(user.Password),
-		[]byte(req.OldPassword),
-	)
-
-	if err != nil {
-		return errors.New("old password incorrect")
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword(
-		[]byte(req.NewPassword),
-		10,
-	)
-
-	if err != nil {
-		return errors.New("failed to hash password")
-	}
-
-	user.Password = string(hashedPassword)
-
-	if err := s.DB.Save(&user).Error; err != nil {
-		return errors.New("failed to update password")
-	}
-
-	s.DB.Delete(&reset)
 
 	return nil
 }
