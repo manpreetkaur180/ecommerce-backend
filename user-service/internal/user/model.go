@@ -43,4 +43,68 @@ type OTPLoginRequest struct {
 type OTPData struct {
 	Code    string
 	Expires time.Time
+<<<<<<< Updated upstream
+=======
+}
+type EmailVerification struct {
+	ID         uint      `gorm:"primaryKey"`
+	UserID     uint      `gorm:"not null"`
+	TokenHash  string    `gorm:"not null"`
+	ExpiresAt  time.Time `gorm:"not null"`
+
+	CreatedAt time.Time
+}
+type VerifyEmailRequest struct {
+	Token string `json:"token"`
+}
+type PasswordResetVerification struct {
+	ID         uint      `gorm:"primaryKey"`
+	UserID     uint      `gorm:"not null"`
+	TokenHash  string    `gorm:"not null"`
+	ExpiresAt  time.Time `gorm:"not null"`
+	CreatedAt  time.Time
+}
+
+type PasswordReset struct {
+	ID         uint      `gorm:"primaryKey"`
+	UserID     uint      `gorm:"not null"`
+	TokenHash  string    `gorm:"not null"`
+	ExpiresAt  time.Time `gorm:"not null"`
+	CreatedAt  time.Time
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type ResetPasswordRequest struct {
+	Token           string `json:"token"`
+	NewPassword     string `json:"new_password"`
+	ConfirmPassword string `json:"confirm_password"`
+}
+type UpdatePasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type UpdatePasswordFormRequest struct {
+	Token              string `json:"token"`
+	OldPassword        string `json:"old_password"`
+	NewPassword        string `json:"new_password"`
+	ConfirmNewPassword string `json:"confirm_new_password"`
+}
+
+type PasswordUpdate struct {
+	ID         uint      `gorm:"primaryKey"`
+	UserID     uint      `gorm:"not null"`
+	TokenHash  string    `gorm:"not null"`
+	ExpiresAt  time.Time `gorm:"not null"`
+	CreatedAt  time.Time
+}
+
+type UpdatePasswordConfirmRequest struct {
+	Token              string `json:"token"`
+	OldPassword        string `json:"old_password"`
+	NewPassword        string `json:"new_password"`
+	ConfirmNewPassword string `json:"confirm_new_password"`
+>>>>>>> Stashed changes
 }

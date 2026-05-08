@@ -289,3 +289,279 @@ func (s *Service) VerifyEmail(token string) error {
 
 	return nil
 }
+func (s *Service) ForgotPassword(
+	email string,
+) error {
+
+	user, err := s.FindByIdentifier(email, "")
+
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	rawToken := generateVerificationToken()
+
+	hashedToken := hashToken(rawToken)
+
+	resetVerification := PasswordResetVerification{
+		UserID:    user.ID,
+		TokenHash: hashedToken,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+	}
+
+	s.DB.Create(&resetVerification)
+
+	verifyLink := fmt.Sprintf(
+	"https://a15b-115-245-207-91.ngrok-free.app/api/v1/user/verify-reset?token=%s",
+	rawToken,
+)
+
+	return utils.SendForgotPasswordVerificationEmail(
+		user.Name,
+		user.Email,
+		verifyLink,
+	)
+}
+func (s *Service) VerifyResetRequest(
+	rawToken string,
+) error {
+
+	hashedToken := hashToken(rawToken)
+
+	var verification PasswordResetVerification
+
+	err := s.DB.Where(
+		"token_hash = ?",
+		hashedToken,
+	).First(&verification).Error
+
+	if err != nil {
+		return errors.New("invalid token")
+	}
+
+	if time.Now().After(
+		verification.ExpiresAt,
+	) {
+		return errors.New("token expired")
+	}
+
+	var user User
+
+	if err := s.DB.First(
+		&user,
+		verification.UserID,
+	).Error; err != nil {
+
+		return errors.New("user not found")
+	}
+
+	rawResetToken := generateVerificationToken()
+
+	hashedResetToken := hashToken(
+		rawResetToken,
+	)
+
+	reset := PasswordReset{
+		UserID:    user.ID,
+		TokenHash: hashedResetToken,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+	}
+
+	s.DB.Create(&reset)
+
+resetLink := fmt.Sprintf(
+	"https://a15b-115-245-207-91.ngrok-free.app/api/v1/user/reset-password-page?token=%s",
+	rawResetToken,
+)
+
+	utils.SendResetPasswordEmail(
+		user.Name,
+		user.Email,
+		resetLink,
+	)
+
+	s.DB.Delete(&verification)
+
+	return nil
+}
+func (s *Service) ResetPassword(
+	req ResetPasswordRequest,
+) error {
+
+	if req.NewPassword == "" {
+		return errors.New(
+			"new password required",
+		)
+	}
+
+	if req.NewPassword != req.ConfirmPassword {
+		return errors.New(
+			"passwords do not match",
+		)
+	}
+
+	hashedToken := hashToken(req.Token)
+
+	var reset PasswordReset
+
+	err := s.DB.Where(
+		"token_hash = ?",
+		hashedToken,
+	).First(&reset).Error
+
+	if err != nil {
+		return errors.New(
+			"invalid reset token",
+		)
+	}
+
+	if time.Now().After(reset.ExpiresAt) {
+		return errors.New(
+			"reset token expired",
+		)
+	}
+
+	var user User
+
+	if err := s.DB.First(
+		&user,
+		reset.UserID,
+	).Error; err != nil {
+
+		return errors.New(
+			"user not found",
+		)
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword(
+		[]byte(req.NewPassword),
+		10,
+	)
+
+	if err != nil {
+		return errors.New(
+			"failed to hash password",
+		)
+	}
+
+	user.Password = string(hashedPassword)
+
+	if err := s.DB.Save(&user).Error; err != nil {
+		return errors.New(
+			"failed to update password",
+		)
+	}
+
+	s.DB.Delete(&reset)
+
+	return nil
+}
+func (s *Service) SendUpdatePasswordLink(
+	email string,
+) error {
+
+	user, err := s.FindByIdentifier(email, "")
+
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	rawToken := generateVerificationToken()
+
+	hashedToken := hashToken(rawToken)
+
+	reset := PasswordReset{
+		UserID:    user.ID,
+		TokenHash: hashedToken,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+	}
+
+	s.DB.Create(&reset)
+
+	updateLink := fmt.Sprintf(
+	"https://a15b-115-245-207-91.ngrok-free.app/api/v1/user/update-password-page?token=%s",
+	rawToken,
+)
+
+	return utils.SendUpdatePasswordEmail(
+		user.Name,
+		user.Email,
+		updateLink,
+	)
+}
+
+func (s *Service) UpdatePassword(
+	req UpdatePasswordConfirmRequest,
+) error {
+
+	if req.OldPassword == "" {
+		return errors.New("old password required")
+	}
+
+	if req.NewPassword == "" {
+		return errors.New("new password required")
+	}
+
+	if req.NewPassword != req.ConfirmNewPassword {
+		return errors.New("passwords do not match")
+	}
+
+	if err := utils.ValidatePassword(req.NewPassword); err != nil {
+		return err
+	}
+
+	hashedToken := hashToken(req.Token)
+
+	var reset PasswordReset
+
+	err := s.DB.Where(
+		"token_hash = ?",
+		hashedToken,
+	).First(&reset).Error
+
+	if err != nil {
+		return errors.New("invalid update token")
+	}
+
+	if time.Now().After(reset.ExpiresAt) {
+		return errors.New("update token expired")
+	}
+
+	var user User
+
+	if err := s.DB.First(
+		&user,
+		reset.UserID,
+	).Error; err != nil {
+
+		return errors.New("user not found")
+	}
+
+	err = bcrypt.CompareHashAndPassword(
+		[]byte(user.Password),
+		[]byte(req.OldPassword),
+	)
+
+	if err != nil {
+		return errors.New("old password incorrect")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword(
+		[]byte(req.NewPassword),
+		10,
+	)
+
+	if err != nil {
+		return errors.New("failed to hash password")
+	}
+
+	user.Password = string(hashedPassword)
+
+	if err := s.DB.Save(&user).Error; err != nil {
+		return errors.New("failed to update password")
+	}
+
+	s.DB.Delete(&reset)
+
+	return nil
+}

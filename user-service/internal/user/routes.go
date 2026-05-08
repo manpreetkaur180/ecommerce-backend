@@ -30,5 +30,46 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 	userRoutes.Post("/login", authLimiter, handler.Login)
 	userRoutes.Post("/send-otp", authLimiter, handler.SendOTP)
 	userRoutes.Post("/login-otp", authLimiter, handler.LoginWithOTP)
+<<<<<<< Updated upstream
 	userRoutes.Get("/verify-email", handler.VerifyEmail)
+=======
+	userRoutes.Get("/verify-email",handler.VerifyEmail)
+	userRoutes.Post(
+	"/forgot-password",
+	authLimiter,
+	handler.ForgotPassword,
+)
+
+userRoutes.Get(
+	"/verify-reset",
+	handler.VerifyResetRequest,
+)
+
+userRoutes.Get(
+	"/reset-password-page",
+	handler.ResetPasswordPage,
+)
+
+userRoutes.Post(
+	"/reset-password",
+	authLimiter,
+	handler.ResetPassword,
+)
+userRoutes.Post(
+	"/update-password-request",
+	authLimiter,
+	handler.UpdatePasswordRequest,
+)
+
+userRoutes.Get(
+	"/update-password-page",
+	handler.UpdatePasswordPage,
+)
+
+userRoutes.Post(
+	"/update-password",
+	authLimiter,
+	handler.UpdatePassword,
+)
+>>>>>>> Stashed changes
 }

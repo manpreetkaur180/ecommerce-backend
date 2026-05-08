@@ -53,11 +53,39 @@ func (s *MessageService) SendEmail(req models.EmailRequest) error {
 			req.Data["link"].(string),
 		)
 
+<<<<<<< Updated upstream
 	default:
 
 		return errors.New("no template found")
 	}
 
+=======
+case "forgot_password_verify":
+
+	content = templates.ForgotPasswordVerifyTemplate(
+		req.Data["name"].(string),
+		req.Data["link"].(string),
+	)
+
+case "reset_password":
+
+	content = templates.ResetPasswordTemplate(
+		req.Data["name"].(string),
+		req.Data["link"].(string),
+	)
+
+	case "update_password":
+
+		content = templates.UpdatePasswordTemplate(
+			req.Data["name"].(string),
+			req.Data["link"].(string),
+		)
+
+default:
+
+	return errors.New("no template found")
+}	
+>>>>>>> Stashed changes
 	message := models.Message{
 		To:       req.To,
 		Subject:  req.Subject,
