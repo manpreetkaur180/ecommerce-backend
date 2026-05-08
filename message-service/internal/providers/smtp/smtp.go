@@ -27,8 +27,11 @@ func (p *Provider) Send(message models.Message) error {
 		p.cfg.Host,
 	)
 
+	// Use CRLF and proper MIME headers so clients render HTML.
 	body := fmt.Sprintf(
-		"Subject: %s\n\n%s",
+		"From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
+		p.cfg.Email,
+		message.To,
 		message.Subject,
 		message.Content,
 	)

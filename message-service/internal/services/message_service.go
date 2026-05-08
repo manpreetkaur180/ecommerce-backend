@@ -27,9 +27,7 @@ func NewMessageService(
 	}
 }
 
-func (s *MessageService) SendEmail(
-	req models.EmailRequest,
-) error {
+func (s *MessageService) SendEmail(req models.EmailRequest) error {
 
 	var content string
 
@@ -48,11 +46,38 @@ func (s *MessageService) SendEmail(
 			req.Data["name"].(string),
 		)
 
+	case "verify_email":
+
+		content = templates.VerifyEmailTemplate(
+			req.Data["name"].(string),
+			req.Data["link"].(string),
+		)
+
+	case "forgot_password_verify":
+
+		content = templates.ForgotPasswordVerifyTemplate(
+			req.Data["name"].(string),
+			req.Data["link"].(string),
+		)
+
+	case "reset_password":
+
+		content = templates.ResetPasswordTemplate(
+			req.Data["name"].(string),
+			req.Data["link"].(string),
+		)
+
+	case "update_password":
+
+		content = templates.UpdatePasswordTemplate(
+			req.Data["name"].(string),
+			req.Data["link"].(string),
+		)
+
 	default:
 
 		return errors.New("no template found")
 	}
-
 	message := models.Message{
 		To:       req.To,
 		Subject:  req.Subject,

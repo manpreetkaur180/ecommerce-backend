@@ -10,13 +10,15 @@ func NotifyUserRegistered(
 	name string,
 	email string,
 	phone string,
+	token string,
 ) error {
 
 	payload := map[string]string{
-		"name":  name,
-		"email": email,
-		"phone": phone,
-	}
+	"name":  name,
+	"email": email,
+	"phone": phone,
+	"token": token,
+}
 
 	jsonData, _ := json.Marshal(payload)
 

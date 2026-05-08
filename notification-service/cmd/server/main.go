@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"notification-service/internal/consumers"
 	"notification-service/internal/handlers"
 	"notification-service/internal/services"
 )
@@ -21,6 +22,8 @@ func main() {
 	notificationHandler := handlers.NewNotificationHandler(
 		notificationService,
 	)
+
+	consumers.StartEmailConsumers(notificationService)
 
 	// -------- ROUTES --------
 	app.Post(
