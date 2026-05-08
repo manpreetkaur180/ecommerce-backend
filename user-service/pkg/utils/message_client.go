@@ -32,3 +32,30 @@ func SendOTPEmail(
 
 	return err
 }
+
+func SendVerificationEmail(
+	name string,
+	email string,
+	link string,
+) error {
+
+	payload := map[string]interface{}{
+		"to": email,
+		"subject": "Verify Your Email",
+		"template": "verify_email",
+		"data": map[string]string{
+			"name": name,
+			"link": link,
+		},
+	}
+
+	jsonData, _ := json.Marshal(payload)
+
+	_, err := http.Post(
+		"http://message-service:3002/email/send",
+		"application/json",
+		bytes.NewBuffer(jsonData),
+	)
+
+	return err
+}

@@ -1,7 +1,8 @@
-package models
+	package models
 
-type UserRegisteredEvent struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Phone string `json:"phone"`
-}
+	type UserRegisteredEvent struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+		Phone string `json:"phone"`
+	}
+	

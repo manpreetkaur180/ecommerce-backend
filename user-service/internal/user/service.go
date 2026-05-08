@@ -2,7 +2,8 @@ package user
 
 import (
 	"errors"
-
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"user-service/config"
@@ -29,6 +30,21 @@ func NewService(db *gorm.DB, rdb *redis.Client) *Service {
 }
 func generateOTP() string {
 	return fmt.Sprintf("%04d", rand.Intn(10000))
+}
+
+func generateVerificationToken() string {
+	return fmt.Sprintf(
+		"%d%d",
+		time.Now().UnixNano(),
+		rand.Intn(100000),
+	)
+}
+
+func hashToken(token string) string {
+
+	hash := sha256.Sum256([]byte(token))
+
+	return hex.EncodeToString(hash[:])
 }
 func (s *Service) SendOTP(
 	user *User,
@@ -171,10 +187,11 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 
 	// 7. CREATE USER
 	user := User{
-		Name:     req.Name,
-		Email:    req.Email,
-		Phone:    req.Phone,
-		Password: string(hashed),
+		Name:       req.Name,
+		Email:      req.Email,
+		Phone:      req.Phone,
+		Password:   string(hashed),
+		IsVerified: false,
 	}
 
 	if err := s.DB.Create(&user).Error; err != nil {
@@ -186,6 +203,33 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 	user.Email,
 	user.Phone,
 )
+
+go func() {
+
+	time.Sleep(1 * time.Minute)
+
+	rawToken := generateVerificationToken()
+
+	hashedToken := hashToken(rawToken)
+
+	verification := EmailVerification{
+		UserID:    user.ID,
+		TokenHash: hashedToken,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+
+	s.DB.Create(&verification)
+verifyLink := fmt.Sprintf(
+	"https://a15b-115-245-207-91.ngrok-free.app/api/v1/user/verify-email?token=%s",
+	rawToken,
+)
+	utils.SendVerificationEmail(
+		user.Name,
+		user.Email,
+		verifyLink,
+	)
+
+}()
 	return &user, nil
 }
 
@@ -229,6 +273,9 @@ func (s *Service) Login(req LoginRequest) (*User, error) {
 	if err := query.First(&user).Error; err != nil {
 		return nil, errors.New("invalid credentials")
 	}
+	if !user.IsVerified {
+	return nil, errors.New("please verify your email before login")
+}
 
 	// 4. verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
@@ -236,4 +283,45 @@ func (s *Service) Login(req LoginRequest) (*User, error) {
 	}
 
 	return &user, nil
+}
+func (s *Service) VerifyEmail(
+	rawToken string,
+) error {
+
+	hashedToken := hashToken(rawToken)
+
+	var verification EmailVerification
+
+	err := s.DB.Where(
+		"token_hash = ?",
+		hashedToken,
+	).First(&verification).Error
+
+	if err != nil {
+		return errors.New("invalid verification token")
+	}
+
+	if time.Now().After(verification.ExpiresAt) {
+		return errors.New("verification token expired")
+	}
+
+	var user User
+
+	if err := s.DB.First(
+		&user,
+		verification.UserID,
+	).Error; err != nil {
+
+		return errors.New("user not found")
+	}
+
+	user.IsVerified = true
+
+	if err := s.DB.Save(&user).Error; err != nil {
+		return errors.New("failed to verify user")
+	}
+
+	s.DB.Delete(&verification)
+
+	return nil
 }

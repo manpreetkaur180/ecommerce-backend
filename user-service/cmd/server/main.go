@@ -20,7 +20,7 @@ func main() {
 	db := config.ConnectDB()
 
 	// migrate table
-	db.AutoMigrate(&user.User{})
+	db.AutoMigrate(&user.User{}, &user.EmailVerification{})
 
 	// redis
 	rdb := config.ConnectRedis()
@@ -45,5 +45,5 @@ func main() {
 	}
 
 	log.Println("Server running on port", port)
-	log.Fatal(app.Listen(":" + port))
+	log.Fatal(app.Listen("0.0.0.0:" + port))
 }

@@ -8,7 +8,7 @@ type User struct {
 	Email      string    `gorm:"uniqueIndex;not null"`
 	Phone      string    `gorm:"uniqueIndex;not null"`
 	Password   string    `gorm:"not null"`
-
+	IsVerified bool      `gorm:"default:false"`
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
@@ -35,4 +35,15 @@ type OTPLoginRequest struct {
 type OTPData struct {
 	Code    string
 	Expires time.Time
+}
+type EmailVerification struct {
+	ID         uint      `gorm:"primaryKey"`
+	UserID     uint      `gorm:"not null"`
+	TokenHash  string    `gorm:"not null"`
+	ExpiresAt  time.Time `gorm:"not null"`
+
+	CreatedAt time.Time
+}
+type VerifyEmailRequest struct {
+	Token string `json:"token"`
 }

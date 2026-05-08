@@ -73,39 +73,69 @@ func (h *Handler) SendOTP(c *fiber.Ctx) error {
 	req.Phone = utils.NormalizePhone(req.Phone)
 
 	if req.Email == "" && req.Phone == "" {
-		return utils.ErrorResponse(c, 400, "email or phone is required")
+		return utils.ErrorResponse(
+			c,
+			400,
+			"email or phone is required",
+		)
 	}
 
+	// validate email
 	if req.Email != "" {
 		if err := utils.ValidateEmail(req.Email); err != nil {
-			return utils.ErrorResponse(c, 400, err.Error())
+			return utils.ErrorResponse(
+				c,
+				400,
+				err.Error(),
+			)
 		}
 	}
 
+	// validate phone
 	if req.Phone != "" {
 		if err := utils.ValidatePhone(req.Phone); err != nil {
-			return utils.ErrorResponse(c, 400, err.Error())
+			return utils.ErrorResponse(
+				c,
+				400,
+				err.Error(),
+			)
 		}
 	}
 
+	// find user
 	user, err := h.Service.FindByIdentifier(
 		req.Email,
 		req.Phone,
 	)
 
 	if err != nil {
-		return utils.ErrorResponse(c, 400, "user not found")
+		return utils.ErrorResponse(
+			c,
+			400,
+			"user not found",
+		)
 	}
 
+	// email verification check
+	if !user.IsVerified {
+		return utils.ErrorResponse(
+			c,
+			403,
+			"please verify your email before login",
+		)
+	}
+
+	// default identifier = email
+	identifier := req.Email
 	channel := "email"
 
-	identifier := req.Email
-
+	// if phone exists use sms
 	if req.Phone != "" {
-		channel = "phone"
 		identifier = req.Phone
+		channel = "phone"
 	}
 
+	// send otp
 	err = h.Service.SendOTP(
 		user,
 		identifier,
@@ -113,7 +143,11 @@ func (h *Handler) SendOTP(c *fiber.Ctx) error {
 	)
 
 	if err != nil {
-		return utils.ErrorResponse(c, 500, "failed to send otp")
+		return utils.ErrorResponse(
+			c,
+			500,
+			"failed to send otp",
+		)
 	}
 
 	return utils.SuccessResponse(
@@ -127,33 +161,75 @@ func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
 	var req OTPLoginRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		return utils.ErrorResponse(c, 400, "invalid request body")
+		return utils.ErrorResponse(
+			c,
+			400,
+			"invalid request body",
+		)
 	}
 
 	req.Email = utils.NormalizeEmail(req.Email)
 	req.Phone = utils.NormalizePhone(req.Phone)
 
+	// require email or phone
 	if req.Email == "" && req.Phone == "" {
-		return utils.ErrorResponse(c, 400, "email or phone is required")
+		return utils.ErrorResponse(
+			c,
+			400,
+			"email or phone is required",
+		)
 	}
 
+	// require otp
 	if req.OTP == "" {
-		return utils.ErrorResponse(c, 400, "otp is required")
+		return utils.ErrorResponse(
+			c,
+			400,
+			"otp is required",
+		)
 	}
 
+	// find user first
+	user, err := h.Service.FindByIdentifier(
+		req.Email,
+		req.Phone,
+	)
+
+	if err != nil {
+		return utils.ErrorResponse(
+			c,
+			400,
+			"user not found",
+		)
+	}
+
+	// check email verification BEFORE otp verification
+	if !user.IsVerified {
+		return utils.ErrorResponse(
+			c,
+			403,
+			"please verify your email before login",
+		)
+	}
+
+	// identifier for redis
 	identifier := req.Email
 
 	if identifier == "" {
 		identifier = req.Phone
 	}
 
-	if err := h.Service.VerifyOTP(identifier, req.OTP); err != nil {
-		return utils.ErrorResponse(c, 400, err.Error())
-	}
+	// verify otp
+	if err := h.Service.VerifyOTP(
+		identifier,
+		req.OTP,
+	); err != nil {
 
-	user, err := h.Service.FindByIdentifier(req.Email, req.Phone)
-	if err != nil {
-		return utils.ErrorResponse(c, 400, "invalid request")
+		return utils.ErrorResponse(
+			c,
+			400,
+			err.Error(),
+		)
 	}
 
 	return utils.SuccessResponse(
@@ -161,5 +237,24 @@ func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
 		200,
 		"Hi "+user.Name+", logged in successfully",
 		nil,
+	)
+}
+
+func (h *Handler) VerifyEmail(c *fiber.Ctx) error {
+
+	token := c.Query("token")
+
+	if token == "" {
+		return c.SendString("invalid verification link")
+	}
+
+	err := h.Service.VerifyEmail(token)
+
+	if err != nil {
+		return c.SendString("verification failed: " + err.Error())
+	}
+
+	return c.SendString(
+		"Email verified successfully. You can now login.",
 	)
 }

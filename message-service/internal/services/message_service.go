@@ -35,24 +35,30 @@ func (s *MessageService) SendEmail(
 
 	switch req.Template {
 
-	case "otp":
+case "otp":
 
-		content = templates.OTPTemplate(
-			req.Data["name"].(string),
-			req.Data["otp"].(string),
-		)
+	content = templates.OTPTemplate(
+		req.Data["name"].(string),
+		req.Data["otp"].(string),
+	)
 
-	case "welcome":
+case "welcome":
 
-		content = templates.WelcomeTemplate(
-			req.Data["name"].(string),
-		)
+	content = templates.WelcomeTemplate(
+		req.Data["name"].(string),
+	)
 
-	default:
+case "verify_email":
 
-		return errors.New("no template found")
-	}
+	content = templates.VerifyEmailTemplate(
+		req.Data["name"].(string),
+		req.Data["link"].(string),
+	)
 
+default:
+
+	return errors.New("no template found")
+}
 	message := models.Message{
 		To:       req.To,
 		Subject:  req.Subject,
