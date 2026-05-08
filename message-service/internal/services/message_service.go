@@ -53,26 +53,19 @@ func (s *MessageService) SendEmail(req models.EmailRequest) error {
 			req.Data["link"].(string),
 		)
 
-<<<<<<< Updated upstream
-	default:
+	case "forgot_password_verify":
 
-		return errors.New("no template found")
-	}
+		content = templates.ForgotPasswordVerifyTemplate(
+			req.Data["name"].(string),
+			req.Data["link"].(string),
+		)
 
-=======
-case "forgot_password_verify":
+	case "reset_password":
 
-	content = templates.ForgotPasswordVerifyTemplate(
-		req.Data["name"].(string),
-		req.Data["link"].(string),
-	)
-
-case "reset_password":
-
-	content = templates.ResetPasswordTemplate(
-		req.Data["name"].(string),
-		req.Data["link"].(string),
-	)
+		content = templates.ResetPasswordTemplate(
+			req.Data["name"].(string),
+			req.Data["link"].(string),
+		)
 
 	case "update_password":
 
@@ -81,11 +74,10 @@ case "reset_password":
 			req.Data["link"].(string),
 		)
 
-default:
+	default:
 
-	return errors.New("no template found")
-}	
->>>>>>> Stashed changes
+		return errors.New("no template found")
+	}
 	message := models.Message{
 		To:       req.To,
 		Subject:  req.Subject,

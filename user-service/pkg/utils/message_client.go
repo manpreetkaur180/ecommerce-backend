@@ -57,10 +57,6 @@ func SendOTPEmail(
 			"otp":  otp,
 		},
 	)
-<<<<<<< Updated upstream
-
-	return err
-=======
 }
 
 func SendVerificationEmail(
@@ -126,5 +122,4 @@ func SendUpdatePasswordEmail(
 			"link": updateLink,
 		},
 	)
->>>>>>> Stashed changes
 }

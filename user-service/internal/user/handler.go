@@ -184,8 +184,6 @@ func (h *Handler) VerifyEmail(c *fiber.Ctx) error {
 		"email verified successfully",
 		nil,
 	)
-<<<<<<< Updated upstream
-=======
 }
 func (h *Handler) ForgotPassword(c *fiber.Ctx) error {
 
@@ -529,5 +527,4 @@ You can now login from your mobile app.
 </body>
 </html>
 `)
->>>>>>> Stashed changes
 }

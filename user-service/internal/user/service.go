@@ -299,9 +299,9 @@ func (s *Service) ForgotPassword(
 		return errors.New("user not found")
 	}
 
-	rawToken := generateVerificationToken()
+	rawToken := utils.GenerateToken()
 
-	hashedToken := hashToken(rawToken)
+	hashedToken := utils.HashToken(rawToken)
 
 	resetVerification := PasswordResetVerification{
 		UserID:    user.ID,
@@ -326,7 +326,7 @@ func (s *Service) VerifyResetRequest(
 	rawToken string,
 ) error {
 
-	hashedToken := hashToken(rawToken)
+	hashedToken := utils.HashToken(rawToken)
 
 	var verification PasswordResetVerification
 
@@ -355,9 +355,9 @@ func (s *Service) VerifyResetRequest(
 		return errors.New("user not found")
 	}
 
-	rawResetToken := generateVerificationToken()
+	rawResetToken := utils.GenerateToken()
 
-	hashedResetToken := hashToken(
+	hashedResetToken := utils.HashToken(
 		rawResetToken,
 	)
 
@@ -400,7 +400,7 @@ func (s *Service) ResetPassword(
 		)
 	}
 
-	hashedToken := hashToken(req.Token)
+	hashedToken := utils.HashToken(req.Token)
 
 	var reset PasswordReset
 
@@ -466,9 +466,9 @@ func (s *Service) SendUpdatePasswordLink(
 		return errors.New("user not found")
 	}
 
-	rawToken := generateVerificationToken()
+	rawToken := utils.GenerateToken()
 
-	hashedToken := hashToken(rawToken)
+	hashedToken := utils.HashToken(rawToken)
 
 	reset := PasswordReset{
 		UserID:    user.ID,
@@ -510,7 +510,7 @@ func (s *Service) UpdatePassword(
 		return err
 	}
 
-	hashedToken := hashToken(req.Token)
+	hashedToken := utils.HashToken(req.Token)
 
 	var reset PasswordReset
 

@@ -16,7 +16,6 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 		Max:        5,
 		Expiration: time.Minute,
 
-		// Custom response
 		LimitReached: func(c *fiber.Ctx) error {
 			return c.Status(429).JSON(fiber.Map{
 				"error": "too many requests",
@@ -25,51 +24,19 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 		},
 	})
 
-
 	userRoutes.Post("/register", authLimiter, handler.Register)
 	userRoutes.Post("/login", authLimiter, handler.Login)
 	userRoutes.Post("/send-otp", authLimiter, handler.SendOTP)
 	userRoutes.Post("/login-otp", authLimiter, handler.LoginWithOTP)
-<<<<<<< Updated upstream
 	userRoutes.Get("/verify-email", handler.VerifyEmail)
-=======
-	userRoutes.Get("/verify-email",handler.VerifyEmail)
-	userRoutes.Post(
-	"/forgot-password",
-	authLimiter,
-	handler.ForgotPassword,
-)
 
-userRoutes.Get(
-	"/verify-reset",
-	handler.VerifyResetRequest,
-)
+	userRoutes.Post("/forgot-password", authLimiter, handler.ForgotPassword)
+	userRoutes.Get("/verify-reset", handler.VerifyResetRequest)
+	userRoutes.Get("/reset-password-page", handler.ResetPasswordPage)
+	userRoutes.Post("/reset-password", authLimiter, handler.ResetPassword)
 
-userRoutes.Get(
-	"/reset-password-page",
-	handler.ResetPasswordPage,
-)
-
-userRoutes.Post(
-	"/reset-password",
-	authLimiter,
-	handler.ResetPassword,
-)
-userRoutes.Post(
-	"/update-password-request",
-	authLimiter,
-	handler.UpdatePasswordRequest,
-)
-
-userRoutes.Get(
-	"/update-password-page",
-	handler.UpdatePasswordPage,
-)
-
-userRoutes.Post(
-	"/update-password",
-	authLimiter,
-	handler.UpdatePassword,
-)
->>>>>>> Stashed changes
+	userRoutes.Post("/update-password-request", authLimiter, handler.UpdatePasswordRequest)
+	userRoutes.Get("/update-password-page", handler.UpdatePasswordPage)
+	userRoutes.Post("/update-password", authLimiter, handler.UpdatePassword)
 }
+
