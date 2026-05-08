@@ -97,6 +97,14 @@ func (h *Handler) SendOTP(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, 400, "user not found")
 	}
 
+	if !user.IsVerified {
+		return utils.ErrorResponse(
+			c,
+			403,
+			"please verify your email before requesting otp",
+		)
+	}
+
 	channel := "email"
 
 	identifier := req.Email
@@ -141,6 +149,19 @@ func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, 400, "otp is required")
 	}
 
+	user, err := h.Service.FindByIdentifier(req.Email, req.Phone)
+	if err != nil {
+		return utils.ErrorResponse(c, 400, "invalid request")
+	}
+
+	if !user.IsVerified {
+		return utils.ErrorResponse(
+			c,
+			403,
+			"please verify your email before login",
+		)
+	}
+
 	identifier := req.Email
 
 	if identifier == "" {
@@ -149,11 +170,6 @@ func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
 
 	if err := h.Service.VerifyOTP(identifier, req.OTP); err != nil {
 		return utils.ErrorResponse(c, 400, err.Error())
-	}
-
-	user, err := h.Service.FindByIdentifier(req.Email, req.Phone)
-	if err != nil {
-		return utils.ErrorResponse(c, 400, "invalid request")
 	}
 
 	return utils.SuccessResponse(
