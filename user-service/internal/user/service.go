@@ -85,7 +85,7 @@ func (s *Service) VerifyOTP(identifier, otp string) error {
 		return fmt.Errorf("invalid otp")
 	}
 	fmt.Println("VERIFYING OTP FOR:", identifier)
-fmt.Println("INPUT OTP:", otp)
+	fmt.Println("INPUT OTP:", otp)
 	// delete after use
 	s.RDB.Del(config.Ctx, key)
 
@@ -171,21 +171,41 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 
 	// 7. CREATE USER
 	user := User{
-		Name:     req.Name,
-		Email:    req.Email,
-		Phone:    req.Phone,
-		Password: string(hashed),
+		Name:       req.Name,
+		Email:      req.Email,
+		Phone:      req.Phone,
+		Password:   string(hashed),
+		IsVerified: false,
 	}
 
 	if err := s.DB.Create(&user).Error; err != nil {
 		return nil, errors.New("failed to create user")
 	}
 
-	go utils.NotifyUserRegistered(
-	user.Name,
+	// generate verification token
+	rawToken := utils.GenerateToken()
+	hashedToken := utils.HashToken(rawToken)
+
+	// store verification record
+	verification := EmailVerification{
+	UserID:    user.ID,
+	TokenHash: hashedToken,
+	ExpiresAt: time.Now().Add(24 * time.Hour),
+	Used:      false,
+	}
+
+	if err := s.DB.Create(&verification).Error; err != nil {
+		return nil, errors.New("failed to create verification")
+	}
+
+	// send verification email via message service
+	go utils.SendEmailVerification(
 	user.Email,
-	user.Phone,
-)
+	user.Name,
+	rawToken,
+	)
+
+	s.DB.Create(&verification)
 	return &user, nil
 }
 
@@ -235,5 +255,37 @@ func (s *Service) Login(req LoginRequest) (*User, error) {
 		return nil, errors.New("invalid credentials")
 	}
 
+	if !user.IsVerified {
+		return nil, errors.New("email not verified")
+	}	
+
 	return &user, nil
+}
+
+func (s *Service) VerifyEmail(token string) error {
+
+	hashed := utils.HashToken(token)
+
+	var verification EmailVerification
+
+	err := s.DB.Where("token_hash = ? AND used = false", hashed).
+		First(&verification).Error
+
+	if err != nil {
+		return errors.New("invalid or expired token")
+	}
+
+	if time.Now().After(verification.ExpiresAt) {
+		return errors.New("token expired")
+	}
+
+	// mark token used
+	s.DB.Model(&verification).Update("used", true)
+
+	// mark user verified
+	s.DB.Model(&User{}).
+		Where("id = ?", verification.UserID).
+		Update("is_verified", true)
+
+	return nil
 }

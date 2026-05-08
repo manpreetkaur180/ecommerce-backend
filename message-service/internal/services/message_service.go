@@ -27,9 +27,7 @@ func NewMessageService(
 	}
 }
 
-func (s *MessageService) SendEmail(
-	req models.EmailRequest,
-) error {
+func (s *MessageService) SendEmail(req models.EmailRequest) error {
 
 	var content string
 
@@ -46,6 +44,13 @@ func (s *MessageService) SendEmail(
 
 		content = templates.WelcomeTemplate(
 			req.Data["name"].(string),
+		)
+
+	case "verify_email":
+
+		content = templates.VerifyEmailTemplate(
+			req.Data["name"].(string),
+			req.Data["link"].(string),
 		)
 
 	default:

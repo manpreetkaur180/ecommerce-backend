@@ -163,3 +163,25 @@ func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
 		nil,
 	)
 }
+
+
+func (h *Handler) VerifyEmail(c *fiber.Ctx) error {
+
+	token := c.Query("token")
+
+	if token == "" {
+		return utils.ErrorResponse(c, 400, "token required")
+	}
+
+	err := h.Service.VerifyEmail(token)
+	if err != nil {
+		return utils.ErrorResponse(c, 400, err.Error())
+	}
+
+	return utils.SuccessResponse(
+		c,
+		200,
+		"email verified successfully",
+		nil,
+	)
+}

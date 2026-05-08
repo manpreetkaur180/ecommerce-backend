@@ -20,7 +20,7 @@ func main() {
 	db := config.ConnectDB()
 
 	// migrate table
-	db.AutoMigrate(&user.User{})
+	db.AutoMigrate(&user.User{}, &user.EmailVerification{})
 
 	// redis
 	rdb := config.ConnectRedis()

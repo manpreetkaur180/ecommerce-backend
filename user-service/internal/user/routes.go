@@ -30,4 +30,5 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 	userRoutes.Post("/login", authLimiter, handler.Login)
 	userRoutes.Post("/send-otp", authLimiter, handler.SendOTP)
 	userRoutes.Post("/login-otp", authLimiter, handler.LoginWithOTP)
+	userRoutes.Get("/verify-email", handler.VerifyEmail)
 }
