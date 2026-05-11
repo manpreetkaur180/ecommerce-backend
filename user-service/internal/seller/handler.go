@@ -56,3 +56,94 @@ func (h *Handler) ApplySeller(c *fiber.Ctx) error {
 		nil,
 	)
 }
+func (h *Handler) GetAllApplications(c *fiber.Ctx) error {
+
+	applications, err := h.Service.GetAllApplications()
+
+	if err != nil {
+		return utils.ErrorResponse(
+			c,
+			500,
+			err.Error(),
+		)
+	}
+
+	return utils.SuccessResponse(
+		c,
+		200,
+		"seller applications fetched successfully",
+		applications,
+	)
+}
+func (h *Handler) ApproveApplication(c *fiber.Ctx) error {
+
+	id, err := c.ParamsInt("id")
+
+	if err != nil {
+		return utils.ErrorResponse(
+			c,
+			400,
+			"invalid application id",
+		)
+	}
+
+	if err := h.Service.ApproveApplication(uint(id)); err != nil {
+		return utils.ErrorResponse(
+			c,
+			400,
+			err.Error(),
+		)
+	}
+
+	return utils.SuccessResponse(
+		c,
+		200,
+		"seller application approved successfully",
+		nil,
+	)
+}
+func (h *Handler) RejectApplication(c *fiber.Ctx) error {
+
+	id, err := c.ParamsInt("id")
+
+	if err != nil {
+		return utils.ErrorResponse(
+			c,
+			400,
+			"invalid application id",
+		)
+	}
+
+	type RejectRequest struct {
+		AdminNote string `json:"admin_note"`
+	}
+
+	var req RejectRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(
+			c,
+			400,
+			"invalid request body",
+		)
+	}
+
+	if err := h.Service.RejectApplication(
+		uint(id),
+		req.AdminNote,
+	); err != nil {
+
+		return utils.ErrorResponse(
+			c,
+			400,
+			err.Error(),
+		)
+	}
+
+	return utils.SuccessResponse(
+		c,
+		200,
+		"seller application rejected successfully",
+		nil,
+	)
+}

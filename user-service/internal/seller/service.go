@@ -75,3 +75,88 @@ func (s *Service) ApplySeller(
 
 	return nil
 }
+func (s *Service) GetAllApplications() ([]SellerApplication, error) {
+
+	var applications []SellerApplication
+
+	if err := s.DB.Order("created_at desc").
+		Find(&applications).Error; err != nil {
+
+		return nil, errors.New("failed to fetch applications")
+	}
+
+	return applications, nil
+}
+func (s *Service) ApproveApplication(
+	applicationID uint,
+) error {
+
+	var application SellerApplication
+
+	if err := s.DB.First(
+		&application,
+		applicationID,
+	).Error; err != nil {
+
+		return errors.New("application not found")
+	}
+
+	if application.Status != StatusPending {
+		return errors.New("application already processed")
+	}
+
+	// fetch user
+	var existingUser user.User
+
+	if err := s.DB.First(
+		&existingUser,
+		application.UserID,
+	).Error; err != nil {
+
+		return errors.New("user not found")
+	}
+
+	// update seller status
+	existingUser.IsSeller = true
+
+	if err := s.DB.Save(&existingUser).Error; err != nil {
+		return errors.New("failed to update user seller status")
+	}
+
+	// approve application
+	application.Status = StatusApproved
+
+	if err := s.DB.Save(&application).Error; err != nil {
+		return errors.New("failed to approve application")
+	}
+
+	return nil
+}
+func (s *Service) RejectApplication(
+	applicationID uint,
+	adminNote string,
+) error {
+
+	var application SellerApplication
+
+	if err := s.DB.First(
+		&application,
+		applicationID,
+	).Error; err != nil {
+
+		return errors.New("application not found")
+	}
+
+	if application.Status != StatusPending {
+		return errors.New("application already processed")
+	}
+
+	application.Status = StatusRejected
+	application.AdminNote = adminNote
+
+	if err := s.DB.Save(&application).Error; err != nil {
+		return errors.New("failed to reject application")
+	}
+
+	return nil
+}

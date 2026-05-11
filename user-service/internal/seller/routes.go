@@ -11,6 +11,7 @@ func RegisterRoutes(
 	handler *Handler,
 ) {
 
+	// buyer routes
 	seller := app.Group(
 		"/api/v1/seller",
 		middleware.RequireAuth(),
@@ -19,5 +20,27 @@ func RegisterRoutes(
 	seller.Post(
 		"/apply",
 		handler.ApplySeller,
+	)
+
+	// admin routes
+	admin := app.Group(
+		"/api/v1/admin",
+		middleware.RequireAuth(),
+		middleware.RequireAdmin(),
+	)
+
+	admin.Get(
+		"/seller-applications",
+		handler.GetAllApplications,
+	)
+
+	admin.Patch(
+		"/seller-applications/:id/approve",
+		handler.ApproveApplication,
+	)
+
+	admin.Patch(
+		"/seller-applications/:id/reject",
+		handler.RejectApplication,
 	)
 }

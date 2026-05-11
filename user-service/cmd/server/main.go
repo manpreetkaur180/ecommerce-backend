@@ -63,6 +63,7 @@ db.AutoMigrate(
 	&user.PasswordUpdate{},
 	&seller.SellerApplication{},
 )
+user.SeedAdmin(db)
 
 	// redis
 	rdb := config.ConnectRedis()

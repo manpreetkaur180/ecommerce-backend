@@ -70,3 +70,30 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
+      
+  product-db:
+    image: postgres:15
+    container_name: product-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: product_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - product_postgres_data:/var/lib/postgresql/data
+  
+  product-service:
+    build:
+      context: ./product-service
+    container_name: product-service
+    ports:
+      - "3004:3004"
+    depends_on:
+      - product-db
+    env_file:
+      - ./product-service/.env
+
+volumes:
+  postgres_data:
+  product_postgres_data:
