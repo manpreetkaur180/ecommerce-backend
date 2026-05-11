@@ -205,12 +205,15 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 
 	// 7. CREATE USER
 	user := User{
-		Name:       req.Name,
-		Email:      req.Email,
-		Phone:      req.Phone,
-		Password:   string(hashed),
-		IsVerified: false,
-	}
+	Name:       req.Name,
+	Email:      req.Email,
+	Phone:      req.Phone,
+	Password:   string(hashed),
+
+	Role:       RoleBuyer,
+	IsSeller:   false,
+	IsVerified: false,
+}
 
 	if err := s.DB.Create(&user).Error; err != nil {
 		return nil, errors.New("failed to create user")

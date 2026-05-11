@@ -54,12 +54,34 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, 401, err.Error())
 	}
 
+	// generate jwt
+	token, err := utils.GenerateJWT(
+		user.ID,
+		user.Role,
+		user.IsSeller,
+	)
+
+	if err != nil {
+		return utils.ErrorResponse(c, 500, "failed to generate token")
+	}
+
 	// success response
 	return utils.SuccessResponse(
 		c,
 		200,
 		"Hi "+user.Name+", logged in successfully",
-		nil,
+		fiber.Map{
+			"token": token,
+			"user": fiber.Map{
+				"id":          user.ID,
+				"name":        user.Name,
+				"email":       user.Email,
+				"phone":       user.Phone,
+				"role":        user.Role,
+				"is_seller":   user.IsSeller,
+				"is_verified": user.IsVerified,
+			},
+		},
 	)
 }
 func (h *Handler) SendOTP(c *fiber.Ctx) error {
@@ -173,11 +195,33 @@ func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, 400, err.Error())
 	}
 
+	// generate jwt
+	token, err := utils.GenerateJWT(
+		user.ID,
+		user.Role,
+		user.IsSeller,
+	)
+
+	if err != nil {
+		return utils.ErrorResponse(c, 500, "failed to generate token")
+	}
+
 	return utils.SuccessResponse(
 		c,
 		200,
 		"Hi "+user.Name+", logged in successfully",
-		nil,
+		fiber.Map{
+			"token": token,
+			"user": fiber.Map{
+				"id":          user.ID,
+				"name":        user.Name,
+				"email":       user.Email,
+				"phone":       user.Phone,
+				"role":        user.Role,
+				"is_seller":   user.IsSeller,
+				"is_verified": user.IsVerified,
+			},
+		},
 	)
 }
 

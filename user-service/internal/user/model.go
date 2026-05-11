@@ -9,6 +9,11 @@ type User struct {
 	Phone      string `gorm:"uniqueIndex;not null"`
 	Password   string `gorm:"not null"`
 	IsVerified bool   `gorm:"default:false"`
+
+	Role string `gorm:"type:varchar(20);default:'buyer'"`
+
+	IsSeller bool `gorm:"default:false"`
+	
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
@@ -99,3 +104,7 @@ type UpdatePasswordConfirmRequest struct {
 	ConfirmNewPassword string `json:"confirm_new_password"`
 }
 
+const (
+	RoleBuyer = "buyer"
+	RoleAdmin = "admin"
+)
