@@ -3,7 +3,7 @@ package product
 import (
 	"errors"
 	"product-service/pkg/utils"
-
+	"math"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -101,14 +101,31 @@ func (s *Service) CreateProduct(
 	return &product, nil
 }
 
-func (s *Service) GetAllProducts() ([]BuyerProductResponse, error) {
+func (s *Service) GetAllProducts(
+	page int,
+) (*BuyerProductsPaginatedResponse, error) {
 
 	var products []Product
+
+	const limit = 5
+
+offset := (page - 1) * limit
+
+	var total int64
+
+	if err := s.DB.Model(&Product{}).
+		Where("is_active = ?", true).
+		Count(&total).Error; err != nil {
+
+		return nil, errors.New("failed to count products")
+	}
 
 	if err := s.DB.Where(
 		"is_active = ?",
 		true,
 	).Order("created_at desc").
+		Limit(limit).
+		Offset(offset).
 		Find(&products).Error; err != nil {
 
 		return nil, errors.New("failed to fetch products")
@@ -136,7 +153,18 @@ func (s *Service) GetAllProducts() ([]BuyerProductResponse, error) {
 		})
 	}
 
-	return response, nil
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	return &BuyerProductsPaginatedResponse{
+		Products: response,
+
+		Pagination: PaginationMeta{
+			Page:       page,
+			Limit:      limit,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (s *Service) GetProductByID(
@@ -175,20 +203,47 @@ func (s *Service) GetProductByID(
 
 func (s *Service) GetSellerProducts(
 	sellerID uint,
-) ([]Product, error) {
+	page int,
+) (*SellerProductsPaginatedResponse, error) {
 
 	var products []Product
+
+	const limit = 5
+
+offset := (page - 1) * limit
+
+	var total int64
+
+	if err := s.DB.Model(&Product{}).
+		Where("seller_id = ?", sellerID).
+		Count(&total).Error; err != nil {
+
+		return nil, errors.New("failed to count seller products")
+	}
 
 	if err := s.DB.Where(
 		"seller_id = ?",
 		sellerID,
 	).Order("created_at desc").
+		Limit(limit).
+		Offset(offset).
 		Find(&products).Error; err != nil {
 
 		return nil, errors.New("failed to fetch seller products")
 	}
 
-	return products, nil
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	return &SellerProductsPaginatedResponse{
+		Products: products,
+
+		Pagination: PaginationMeta{
+			Page:       page,
+			Limit:      limit,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (s *Service) UpdateProduct(

@@ -15,11 +15,11 @@ func NewHandler(service *Service) *Handler {
 		Service: service,
 	}
 }
+
 func (h *Handler) CreateProduct(c *fiber.Ctx) error {
 
 	var req CreateProductRequest
 
-	// parse request
 	if err := c.BodyParser(&req); err != nil {
 		return utils.ErrorResponse(
 			c,
@@ -28,7 +28,6 @@ func (h *Handler) CreateProduct(c *fiber.Ctx) error {
 		)
 	}
 
-	// get seller id from jwt middleware
 	sellerID, ok := c.Locals("user_id").(uint)
 
 	if !ok {
@@ -59,9 +58,16 @@ func (h *Handler) CreateProduct(c *fiber.Ctx) error {
 		product,
 	)
 }
+
 func (h *Handler) GetAllProducts(c *fiber.Ctx) error {
 
-	products, err := h.Service.GetAllProducts()
+	page := c.QueryInt("page", 1)
+
+	if page < 1 {
+		page = 1
+	}
+
+	products, err := h.Service.GetAllProducts(page)
 
 	if err != nil {
 		return utils.ErrorResponse(
@@ -78,6 +84,7 @@ func (h *Handler) GetAllProducts(c *fiber.Ctx) error {
 		products,
 	)
 }
+
 func (h *Handler) GetProductByID(c *fiber.Ctx) error {
 
 	id, err := c.ParamsInt("id")
@@ -89,6 +96,7 @@ func (h *Handler) GetProductByID(c *fiber.Ctx) error {
 			"invalid product id",
 		)
 	}
+
 	if err := utils.ValidateID(id, "product id"); err != nil {
 		return utils.ErrorResponse(
 			c,
@@ -114,6 +122,7 @@ func (h *Handler) GetProductByID(c *fiber.Ctx) error {
 		product,
 	)
 }
+
 func (h *Handler) GetSellerProducts(c *fiber.Ctx) error {
 
 	sellerID, ok := c.Locals("user_id").(uint)
@@ -126,7 +135,16 @@ func (h *Handler) GetSellerProducts(c *fiber.Ctx) error {
 		)
 	}
 
-	products, err := h.Service.GetSellerProducts(sellerID)
+	page := c.QueryInt("page", 1)
+
+	if page < 1 {
+		page = 1
+	}
+
+	products, err := h.Service.GetSellerProducts(
+		sellerID,
+		page,
+	)
 
 	if err != nil {
 		return utils.ErrorResponse(
@@ -143,6 +161,7 @@ func (h *Handler) GetSellerProducts(c *fiber.Ctx) error {
 		products,
 	)
 }
+
 func (h *Handler) UpdateProduct(c *fiber.Ctx) error {
 
 	id, err := c.ParamsInt("id")
@@ -154,6 +173,7 @@ func (h *Handler) UpdateProduct(c *fiber.Ctx) error {
 			"invalid product id",
 		)
 	}
+
 	if err := utils.ValidateID(id, "product id"); err != nil {
 		return utils.ErrorResponse(
 			c,
@@ -203,6 +223,7 @@ func (h *Handler) UpdateProduct(c *fiber.Ctx) error {
 		product,
 	)
 }
+
 func (h *Handler) DeleteProduct(c *fiber.Ctx) error {
 
 	id, err := c.ParamsInt("id")
@@ -214,6 +235,7 @@ func (h *Handler) DeleteProduct(c *fiber.Ctx) error {
 			"invalid product id",
 		)
 	}
+
 	if err := utils.ValidateID(id, "product id"); err != nil {
 		return utils.ErrorResponse(
 			c,
