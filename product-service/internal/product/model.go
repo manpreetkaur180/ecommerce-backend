@@ -1,6 +1,10 @@
 package product
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/datatypes"
+)
 
 type Product struct {
 	ID uint `gorm:"primaryKey"`
@@ -17,7 +21,9 @@ type Product struct {
 
 	Category string
 
-	ImageURL string
+	ImageURLs datatypes.JSONSlice[string] `gorm:"type:json" json:"image_urls"`
+
+	Offers string `gorm:"type:text" json:"offers"`
 
 	IsActive bool `gorm:"default:true"`
 
@@ -26,20 +32,32 @@ type Product struct {
 }
 
 type CreateProductRequest struct {
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Price       float64 `json:"price"`
-	Stock       int     `json:"stock"`
-	Category    string  `json:"category"`
-	ImageURL    string  `json:"image_url"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Price       float64  `json:"price"`
+	Stock       int      `json:"stock"`
+	Category    string   `json:"category"`
+	ImageURLs   []string `json:"image_urls"`
+	Offers      string   `json:"offers"`
 }
 
 type UpdateProductRequest struct {
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Price       float64 `json:"price"`
-	Stock       *int    `json:"stock"`
-	Category    string  `json:"category"`
-	ImageURL    string  `json:"image_url"`
-	IsActive    *bool   `json:"is_active"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Price       float64  `json:"price"`
+	Stock       *int     `json:"stock"`
+	Category    string   `json:"category"`
+	ImageURLs   []string `json:"image_urls"`
+	Offers      string   `json:"offers"`
+	IsActive    *bool    `json:"is_active"`
+}
+
+type BuyerProductResponse struct {
+	ID               uint    `json:"id"`
+	Title            string  `json:"title"`
+	ImageURL         string  `json:"image_url"`
+	Description      string  `json:"description"`
+	Price            float64 `json:"price"`
+	Offers           string  `json:"offers"`
+	ExpectedDelivery string  `json:"expected_delivery"`
 }

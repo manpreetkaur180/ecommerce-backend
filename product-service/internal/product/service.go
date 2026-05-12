@@ -41,7 +41,8 @@ func (s *Service) CreateProduct(
 		Price:       req.Price,
 		Stock:       req.Stock,
 		Category:    req.Category,
-		ImageURL:    req.ImageURL,
+		ImageURLs:    req.ImageURLs,
+		Offers: req.Offers,
 		IsActive:    true,
 	}
 
@@ -51,7 +52,7 @@ func (s *Service) CreateProduct(
 
 	return &product, nil
 }
-func (s *Service) GetAllProducts() ([]Product, error) {
+func (s *Service) GetAllProducts() ([]BuyerProductResponse, error) {
 
 	var products []Product
 
@@ -64,7 +65,29 @@ func (s *Service) GetAllProducts() ([]Product, error) {
 		return nil, errors.New("failed to fetch products")
 	}
 
-	return products, nil
+	var response []BuyerProductResponse
+
+	for _, product := range products {
+
+		image := ""
+
+		if len(product.ImageURLs) > 0 {
+			image = product.ImageURLs[0]
+		}
+
+		response = append(response, BuyerProductResponse{
+			ID:          product.ID,
+			Title:       product.Title,
+			ImageURL:    image,
+			Description: product.Description,
+			Price:       product.Price,
+			Offers:      product.Offers,
+
+			ExpectedDelivery: "16 May - 17 May",
+		})
+	}
+
+	return response, nil
 }
 func (s *Service) GetProductByID(
 	productID uint,
@@ -142,9 +165,12 @@ func (s *Service) UpdateProduct(
 		product.Category = req.Category
 	}
 
-	if req.ImageURL != "" {
-		product.ImageURL = req.ImageURL
+	if len(req.ImageURLs) > 0 {
+		product.ImageURLs = req.ImageURLs
 	}
+	if req.Offers != "" {
+	product.Offers = req.Offers
+}	
 
 	if req.IsActive != nil {
 		product.IsActive = *req.IsActive
