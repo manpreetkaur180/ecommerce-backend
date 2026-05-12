@@ -19,7 +19,7 @@ func RegisterRoutes(
 	buyer := api.Group(
 		"/buyer",
 		middleware.RequireAuth(),
-		middleware.RequireBuyer(),
+		middleware.RequireRoles("buyer"),
 	)
 
 	buyer.Get(
@@ -39,7 +39,7 @@ func RegisterRoutes(
 	seller := api.Group(
 		"/seller",
 		middleware.RequireAuth(),
-		middleware.RequireSeller(),
+		middleware.RequireRoles("seller"),
 	)
 
 	seller.Post(

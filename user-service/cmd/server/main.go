@@ -49,7 +49,7 @@ func main() {
 	app.Get(
 		"/admin-test",
 		middleware.RequireAuth(),
-		middleware.RequireAdmin(),
+		middleware.RequireRoles("admin"),
 		func(c *fiber.Ctx) error {
 
 			return c.JSON(fiber.Map{

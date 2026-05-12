@@ -12,12 +12,13 @@ func RegisterRoutes(
 ) {
 
 	// buyer routes
-	seller := app.Group(
+	buyer := app.Group(
 		"/api/v1/seller",
 		middleware.RequireAuth(),
+		middleware.RequireRoles("buyer"),
 	)
 
-	seller.Post(
+	buyer.Post(
 		"/apply",
 		handler.ApplySeller,
 	)
@@ -26,7 +27,7 @@ func RegisterRoutes(
 	admin := app.Group(
 		"/api/v1/admin",
 		middleware.RequireAuth(),
-		middleware.RequireAdmin(),
+		middleware.RequireRoles("admin"),
 	)
 
 	admin.Get(
