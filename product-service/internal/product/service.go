@@ -44,6 +44,11 @@ func (s *Service) CreateProduct(
 		ImageURLs:    req.ImageURLs,
 		Offers: req.Offers,
 		IsActive:    true,
+		Rating: req.Rating,
+
+ReturnAvailable: req.ReturnAvailable,
+
+Warranty: req.Warranty,
 	}
 
 	if err := s.DB.Create(&product).Error; err != nil {
@@ -91,7 +96,7 @@ func (s *Service) GetAllProducts() ([]BuyerProductResponse, error) {
 }
 func (s *Service) GetProductByID(
 	productID uint,
-) (*Product, error) {
+) (*BuyerProductDetailResponse, error) {
 
 	var product Product
 
@@ -104,7 +109,24 @@ func (s *Service) GetProductByID(
 		return nil, errors.New("product not found")
 	}
 
-	return &product, nil
+	response := BuyerProductDetailResponse{
+		ID:                product.ID,
+		Title:             product.Title,
+		Description:       product.Description,
+		Price:             product.Price,
+		Category:          product.Category,
+		ImageURLs:         product.ImageURLs,
+		Offers:            product.Offers,
+		Rating:            product.Rating,
+		ReturnAvailable:   product.ReturnAvailable,
+		Warranty:          product.Warranty,
+		InStock:           product.Stock > 0,
+		AvailableQuantity: product.Stock,
+
+		ExpectedDelivery: "16 May - 17 May",
+	}
+
+	return &response, nil
 }
 func (s *Service) GetSellerProducts(
 	sellerID uint,
@@ -171,6 +193,17 @@ func (s *Service) UpdateProduct(
 	if req.Offers != "" {
 	product.Offers = req.Offers
 }	
+   if req.Rating != nil {
+	product.Rating = *req.Rating
+}
+
+if req.ReturnAvailable != nil {
+	product.ReturnAvailable = *req.ReturnAvailable
+}
+
+if req.Warranty != "" {
+	product.Warranty = req.Warranty
+}
 
 	if req.IsActive != nil {
 		product.IsActive = *req.IsActive
