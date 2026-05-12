@@ -7,33 +7,35 @@ import (
 )
 
 type Product struct {
-	ID uint `gorm:"primaryKey"`
+	ID uint `gorm:"primaryKey" json:"id"`
 
-	SellerID uint `gorm:"not null;index"`
+	SellerID uint `gorm:"not null;index" json:"seller_id"`
 
-	Title string `gorm:"not null"`
+	Title string `gorm:"not null" json:"title"`
 
-	Description string `gorm:"type:text"`
+	Description string `gorm:"type:text" json:"description"`
 
-	Price float64 `gorm:"not null"`
+	Price float64 `gorm:"not null" json:"price"`
 
-	Stock int `gorm:"default:0"`
+	Stock int `gorm:"default:0" json:"stock"`
 
-	Category string
+	Category string `json:"category"`
 
 	ImageURLs datatypes.JSONSlice[string] `gorm:"type:json" json:"image_urls"`
 
-	Offers string  `gorm:"type:text" json:"offers"`
+	Offers string `gorm:"type:text" json:"offers"`
+
 	Rating float64 `gorm:"default:0" json:"rating"`
 
 	ReturnAvailable bool `gorm:"default:false" json:"return_available"`
 
 	Warranty string `gorm:"type:text" json:"warranty,omitempty"`
 
-	IsActive bool `gorm:"default:true"`
+	IsActive bool `gorm:"default:true" json:"is_active"`
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt time.Time `json:"created_at"`
+
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type CreateProductRequest struct {
@@ -44,7 +46,6 @@ type CreateProductRequest struct {
 	Category    string   `json:"category"`
 	ImageURLs   []string `json:"image_urls"`
 	Offers      string   `json:"offers"`
-	Rating      float64  `json:"rating"`
 
 	ReturnAvailable bool `json:"return_available"`
 
@@ -52,19 +53,18 @@ type CreateProductRequest struct {
 }
 
 type UpdateProductRequest struct {
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Price       float64  `json:"price"`
-	Stock       *int     `json:"stock"`
-	Category    string   `json:"category"`
-	ImageURLs   []string `json:"image_urls"`
-	Offers      string   `json:"offers"`
-	IsActive    *bool    `json:"is_active"`
-	Rating      *float64 `json:"rating"`
+	Title       *string   `json:"title"`
+	Description *string   `json:"description"`
+	Price       *float64  `json:"price"`
+	Stock       *int      `json:"stock"`
+	Category    *string   `json:"category"`
+	ImageURLs   *[]string `json:"image_urls"`
+	Offers      *string   `json:"offers"`
+	IsActive    *bool     `json:"is_active"`
 
 	ReturnAvailable *bool `json:"return_available"`
 
-	Warranty string `json:"warranty"`
+	Warranty *string `json:"warranty"`
 }
 
 type BuyerProductResponse struct {
@@ -77,29 +77,27 @@ type BuyerProductResponse struct {
 	ExpectedDelivery string  `json:"expected_delivery"`
 }
 type BuyerProductDetailResponse struct {
-	ID                 uint     `json:"id"`
+	ID uint `json:"id"`
 
-	Title              string   `json:"title"`
+	Title string `json:"title"`
 
-	Description        string   `json:"description"`
+	Description string `json:"description"`
 
-	Price              float64  `json:"price"`
+	Price float64 `json:"price"`
 
-	Category           string   `json:"category"`
+	Category string `json:"category"`
 
-	ImageURLs          []string `json:"image_urls"`
+	ImageURLs []string `json:"image_urls"`
 
-	Offers             string   `json:"offers"`
+	Offers string `json:"offers"`
 
-	Rating             float64  `json:"rating"`
+	Rating float64 `json:"rating"`
 
-	ReturnAvailable    bool     `json:"return_available"`
+	ReturnAvailable bool `json:"return_available"`
 
-	Warranty           string   `json:"warranty,omitempty"`
+	Warranty string `json:"warranty,omitempty"`
 
-	InStock            bool     `json:"in_stock"`
+	InStock bool `json:"in_stock"`
 
-	AvailableQuantity  int      `json:"available_quantity"`
-
-	ExpectedDelivery   string   `json:"expected_delivery"`
+	ExpectedDelivery string `json:"expected_delivery"`
 }

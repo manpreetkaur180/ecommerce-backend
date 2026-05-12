@@ -2,7 +2,9 @@ package product
 
 import (
 	"errors"
+	"product-service/pkg/utils"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -15,40 +17,81 @@ func NewService(db *gorm.DB) *Service {
 		DB: db,
 	}
 }
+
 func (s *Service) CreateProduct(
 	sellerID uint,
 	req CreateProductRequest,
 ) (*Product, error) {
 
-	// validations
-	if req.Title == "" {
-		return nil, errors.New("title is required")
+	// -------------------------
+	// NORMALIZATION
+	// -------------------------
+
+	req.Title = utils.NormalizeTitle(req.Title)
+	req.Description = utils.NormalizeDescription(req.Description)
+	req.Category = utils.NormalizeCategory(req.Category)
+	req.ImageURLs = utils.NormalizeStringSlice(req.ImageURLs)
+	req.Offers = utils.NormalizeOptionalText(req.Offers)
+	req.Warranty = utils.NormalizeOptionalText(req.Warranty)
+
+	// -------------------------
+	// VALIDATIONS
+	// -------------------------
+
+	if err := utils.ValidateTitle(req.Title); err != nil {
+		return nil, err
 	}
 
-	if req.Price <= 0 {
-		return nil, errors.New("price must be greater than 0")
+	if err := utils.ValidateDescription(req.Description); err != nil {
+		return nil, err
 	}
 
-	if req.Stock < 0 {
-		return nil, errors.New("stock cannot be negative")
+	if err := utils.ValidatePrice(req.Price); err != nil {
+		return nil, err
 	}
 
-	// create product
+	if err := utils.ValidateStock(req.Stock); err != nil {
+		return nil, err
+	}
+
+	if err := utils.ValidateCategory(req.Category); err != nil {
+		return nil, err
+	}
+
+	if err := utils.ValidateImageURLs(req.ImageURLs); err != nil {
+		return nil, err
+	}
+
+	if err := utils.ValidateOffers(req.Offers); err != nil {
+		return nil, err
+	}
+
+	if err := utils.ValidateWarranty(req.Warranty); err != nil {
+		return nil, err
+	}
+
+	// -------------------------
+	// CREATE PRODUCT
+	// -------------------------
+
 	product := Product{
-		SellerID:    sellerID,
+		SellerID: sellerID,
+
 		Title:       req.Title,
 		Description: req.Description,
 		Price:       req.Price,
 		Stock:       req.Stock,
 		Category:    req.Category,
-		ImageURLs:    req.ImageURLs,
+
+		ImageURLs: datatypes.JSONSlice[string](req.ImageURLs),
+
 		Offers: req.Offers,
-		IsActive:    true,
-		Rating: req.Rating,
 
-ReturnAvailable: req.ReturnAvailable,
+		ReturnAvailable: req.ReturnAvailable,
 
-Warranty: req.Warranty,
+		Warranty: req.Warranty,
+
+		IsActive: true,
 	}
 
 	if err := s.DB.Create(&product).Error; err != nil {
@@ -57,6 +100,7 @@ Warranty: req.Warranty,
 
 	return &product, nil
 }
+
 func (s *Service) GetAllProducts() ([]BuyerProductResponse, error) {
 
 	var products []Product
@@ -88,12 +132,13 @@ func (s *Service) GetAllProducts() ([]BuyerProductResponse, error) {
 			Price:       product.Price,
 			Offers:      product.Offers,
 
-			ExpectedDelivery: "16 May - 17 May",
+			ExpectedDelivery: utils.GetExpectedDelivery(),
 		})
 	}
 
 	return response, nil
 }
+
 func (s *Service) GetProductByID(
 	productID uint,
 ) (*BuyerProductDetailResponse, error) {
@@ -110,24 +155,24 @@ func (s *Service) GetProductByID(
 	}
 
 	response := BuyerProductDetailResponse{
-		ID:                product.ID,
-		Title:             product.Title,
-		Description:       product.Description,
-		Price:             product.Price,
-		Category:          product.Category,
-		ImageURLs:         product.ImageURLs,
-		Offers:            product.Offers,
-		Rating:            product.Rating,
-		ReturnAvailable:   product.ReturnAvailable,
-		Warranty:          product.Warranty,
-		InStock:           product.Stock > 0,
-		AvailableQuantity: product.Stock,
+		ID:              product.ID,
+		Title:           product.Title,
+		Description:     product.Description,
+		Price:           product.Price,
+		Category:        product.Category,
+		ImageURLs:       product.ImageURLs,
+		Offers:          product.Offers,
+		Rating:          product.Rating,
+		ReturnAvailable: product.ReturnAvailable,
+		Warranty:        product.Warranty,
+		InStock:         product.Stock > 0,
 
-		ExpectedDelivery: "16 May - 17 May",
+		ExpectedDelivery: utils.GetExpectedDelivery(),
 	}
 
 	return &response, nil
 }
+
 func (s *Service) GetSellerProducts(
 	sellerID uint,
 ) ([]Product, error) {
@@ -145,6 +190,7 @@ func (s *Service) GetSellerProducts(
 
 	return products, nil
 }
+
 func (s *Service) UpdateProduct(
 	sellerID uint,
 	productID uint,
@@ -163,47 +209,96 @@ func (s *Service) UpdateProduct(
 		return nil, errors.New("product not found")
 	}
 
-	// update fields
-	if req.Title != "" {
-		product.Title = req.Title
+	// -------------------------
+	// UPDATE FIELDS
+	// -------------------------
+
+	if req.Title != nil {
+
+		title := utils.NormalizeTitle(*req.Title)
+
+		if err := utils.ValidateTitle(title); err != nil {
+			return nil, err
+		}
+
+		product.Title = title
 	}
 
-	if req.Description != "" {
-		product.Description = req.Description
+	if req.Description != nil {
+
+		description := utils.NormalizeDescription(*req.Description)
+
+		if err := utils.ValidateDescription(description); err != nil {
+			return nil, err
+		}
+
+		product.Description = description
 	}
 
-	if req.Price > 0 {
-		product.Price = req.Price
+	if req.Price != nil {
+
+		if err := utils.ValidatePrice(*req.Price); err != nil {
+			return nil, err
+		}
+
+		product.Price = *req.Price
 	}
 
 	if req.Stock != nil {
-		if *req.Stock < 0 {
-			return nil, errors.New("stock cannot be negative")
+
+		if err := utils.ValidateStock(*req.Stock); err != nil {
+			return nil, err
 		}
+
 		product.Stock = *req.Stock
 	}
 
-	if req.Category != "" {
-		product.Category = req.Category
+	if req.Category != nil {
+
+		category := utils.NormalizeCategory(*req.Category)
+
+		if err := utils.ValidateCategory(category); err != nil {
+			return nil, err
+		}
+
+		product.Category = category
 	}
 
-	if len(req.ImageURLs) > 0 {
-		product.ImageURLs = req.ImageURLs
+	if req.ImageURLs != nil {
+		imageURLs := utils.NormalizeStringSlice(*req.ImageURLs)
+
+		if err := utils.ValidateImageURLs(imageURLs); err != nil {
+			return nil, err
+		}
+
+		product.ImageURLs = datatypes.JSONSlice[string](imageURLs)
 	}
-	if req.Offers != "" {
-	product.Offers = req.Offers
-}	
-   if req.Rating != nil {
-	product.Rating = *req.Rating
-}
 
-if req.ReturnAvailable != nil {
-	product.ReturnAvailable = *req.ReturnAvailable
-}
+	if req.Offers != nil {
 
-if req.Warranty != "" {
-	product.Warranty = req.Warranty
-}
+		offers := utils.NormalizeOptionalText(*req.Offers)
+
+		if err := utils.ValidateOffers(offers); err != nil {
+			return nil, err
+		}
+
+		product.Offers = offers
+	}
+
+	if req.ReturnAvailable != nil {
+		product.ReturnAvailable = *req.ReturnAvailable
+	}
+
+	if req.Warranty != nil {
+
+		warranty := utils.NormalizeOptionalText(*req.Warranty)
+
+		if err := utils.ValidateWarranty(warranty); err != nil {
+			return nil, err
+		}
+
+		product.Warranty = warranty
+	}
 
 	if req.IsActive != nil {
 		product.IsActive = *req.IsActive
@@ -215,6 +310,7 @@ if req.Warranty != "" {
 
 	return &product, nil
 }
+
 func (s *Service) DeleteProduct(
 	sellerID uint,
 	productID uint,

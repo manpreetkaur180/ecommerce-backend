@@ -89,6 +89,13 @@ func (h *Handler) GetProductByID(c *fiber.Ctx) error {
 			"invalid product id",
 		)
 	}
+	if err := utils.ValidateID(id, "product id"); err != nil {
+		return utils.ErrorResponse(
+			c,
+			400,
+			err.Error(),
+		)
+	}
 
 	product, err := h.Service.GetProductByID(uint(id))
 
@@ -147,6 +154,13 @@ func (h *Handler) UpdateProduct(c *fiber.Ctx) error {
 			"invalid product id",
 		)
 	}
+	if err := utils.ValidateID(id, "product id"); err != nil {
+		return utils.ErrorResponse(
+			c,
+			400,
+			err.Error(),
+		)
+	}
 
 	sellerID, ok := c.Locals("user_id").(uint)
 
@@ -198,6 +212,13 @@ func (h *Handler) DeleteProduct(c *fiber.Ctx) error {
 			c,
 			400,
 			"invalid product id",
+		)
+	}
+	if err := utils.ValidateID(id, "product id"); err != nil {
+		return utils.ErrorResponse(
+			c,
+			400,
+			err.Error(),
 		)
 	}
 
