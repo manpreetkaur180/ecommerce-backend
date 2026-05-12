@@ -1,21 +1,18 @@
 package templates
 
-import "fmt"
-
-// VerifyEmailTemplate renders email verification message
 func VerifyEmailTemplate(name, link string) string {
-	return fmt.Sprintf(`
-Hello %s,
-
-Please verify your email by clicking the link below:
-
-%s
-
-This link will expire in 24 hours.
-
-If you did not create this account, you can safely ignore this email.
-
-Thanks,  
-Team
-`, name, link)
+	return `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#0b1220;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#e8eefc;">
+    <div style="max-width:560px;margin:0 auto;background:#121a2b;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.28);">
+      <div style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#7aa2ff;margin-bottom:10px;">Email Verification</div>
+      <h2 style="margin:0 0 12px;font-size:22px;color:#ffffff;">Hello ` + name + `</h2>
+      <p style="margin:0 0 14px;color:#b8c6e6;line-height:1.55;">Please verify your email address to activate your account.</p>
+      <a href="` + link + `" style="display:inline-block;background:#4f7cff;color:#fff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:700;">
+        Verify Email
+      </a>
+      <p style="margin:16px 0 0;color:#9fb0d6;font-size:12px;line-height:1.5;">This link will expire in 24 hours. If you did not create this account, you can safely ignore this email.</p>
+    </div>
+  </body>
+</html>`
 }

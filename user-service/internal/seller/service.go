@@ -61,12 +61,12 @@ func (s *Service) ApplySeller(
 
 	// create application
 	application := SellerApplication{
-		UserID:               userID,
-		BusinessName:         req.BusinessName,
-		BusinessDescription:  req.BusinessDescription,
-		GSTIN:                req.GSTIN,
-		AadharNumber:         req.AadharNumber,
-		Status:               StatusPending,
+		UserID:              userID,
+		BusinessName:        req.BusinessName,
+		BusinessDescription: req.BusinessDescription,
+		GSTIN:               req.GSTIN,
+		AadharNumber:        req.AadharNumber,
+		Status:              StatusPending,
 	}
 
 	if err := s.DB.Create(&application).Error; err != nil {
@@ -90,47 +90,48 @@ func (s *Service) GetAllApplications() ([]SellerApplication, error) {
 func (s *Service) ApproveApplication(
 	applicationID uint,
 ) error {
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		var application SellerApplication
 
-	var application SellerApplication
+		if err := tx.First(
+			&application,
+			applicationID,
+		).Error; err != nil {
 
-	if err := s.DB.First(
-		&application,
-		applicationID,
-	).Error; err != nil {
+			return errors.New("application not found")
+		}
 
-		return errors.New("application not found")
-	}
+		if application.Status != StatusPending {
+			return errors.New("application already processed")
+		}
 
-	if application.Status != StatusPending {
-		return errors.New("application already processed")
-	}
+		// fetch user
+		var existingUser user.User
 
-	// fetch user
-	var existingUser user.User
+		if err := tx.First(
+			&existingUser,
+			application.UserID,
+		).Error; err != nil {
 
-	if err := s.DB.First(
-		&existingUser,
-		application.UserID,
-	).Error; err != nil {
+			return errors.New("user not found")
+		}
 
-		return errors.New("user not found")
-	}
+		// update seller status
+		existingUser.IsSeller = true
 
-	// update seller status
-	existingUser.IsSeller = true
+		if err := tx.Save(&existingUser).Error; err != nil {
+			return errors.New("failed to update user seller status")
+		}
 
-	if err := s.DB.Save(&existingUser).Error; err != nil {
-		return errors.New("failed to update user seller status")
-	}
+		// approve application
+		application.Status = StatusApproved
 
-	// approve application
-	application.Status = StatusApproved
+		if err := tx.Save(&application).Error; err != nil {
+			return errors.New("failed to approve application")
+		}
 
-	if err := s.DB.Save(&application).Error; err != nil {
-		return errors.New("failed to approve application")
-	}
-
-	return nil
+		return nil
+	})
 }
 func (s *Service) RejectApplication(
 	applicationID uint,

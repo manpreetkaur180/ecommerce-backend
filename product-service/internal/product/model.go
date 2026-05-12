@@ -38,7 +38,7 @@ type UpdateProductRequest struct {
 	Title       string  `json:"title"`
 	Description string  `json:"description"`
 	Price       float64 `json:"price"`
-	Stock       int     `json:"stock"`
+	Stock       *int    `json:"stock"`
 	Category    string  `json:"category"`
 	ImageURL    string  `json:"image_url"`
 	IsActive    *bool   `json:"is_active"`

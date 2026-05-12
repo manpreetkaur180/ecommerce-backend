@@ -15,6 +15,10 @@ func main() {
 
 	godotenv.Load()
 
+	if os.Getenv("JWT_SECRET") == "" {
+		log.Fatal("JWT_SECRET is required")
+	}
+
 	app := fiber.New()
 
 	// database

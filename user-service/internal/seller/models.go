@@ -11,7 +11,7 @@ const (
 type SellerApplication struct {
 	ID uint `gorm:"primaryKey"`
 
-	UserID uint `gorm:"not null;uniqueIndex"`
+	UserID uint `gorm:"not null;index"`
 
 	BusinessName string `gorm:"not null"`
 

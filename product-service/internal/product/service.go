@@ -35,14 +35,14 @@ func (s *Service) CreateProduct(
 
 	// create product
 	product := Product{
-		SellerID:   sellerID,
-		Title:      req.Title,
+		SellerID:    sellerID,
+		Title:       req.Title,
 		Description: req.Description,
-		Price:      req.Price,
-		Stock:      req.Stock,
-		Category:   req.Category,
-		ImageURL:   req.ImageURL,
-		IsActive:   true,
+		Price:       req.Price,
+		Stock:       req.Stock,
+		Category:    req.Category,
+		ImageURL:    req.ImageURL,
+		IsActive:    true,
 	}
 
 	if err := s.DB.Create(&product).Error; err != nil {
@@ -65,7 +65,7 @@ func (s *Service) GetAllProducts() ([]Product, error) {
 	}
 
 	return products, nil
-}	
+}
 func (s *Service) GetProductByID(
 	productID uint,
 ) (*Product, error) {
@@ -131,8 +131,11 @@ func (s *Service) UpdateProduct(
 		product.Price = req.Price
 	}
 
-	if req.Stock >= 0 {
-		product.Stock = req.Stock
+	if req.Stock != nil {
+		if *req.Stock < 0 {
+			return nil, errors.New("stock cannot be negative")
+		}
+		product.Stock = *req.Stock
 	}
 
 	if req.Category != "" {
@@ -170,8 +173,10 @@ func (s *Service) DeleteProduct(
 		return errors.New("product not found")
 	}
 
-	if err := s.DB.Delete(&product).Error; err != nil {
-		return errors.New("failed to delete product")
+	product.IsActive = false
+
+	if err := s.DB.Save(&product).Error; err != nil {
+		return errors.New("failed to deactivate product")
 	}
 
 	return nil

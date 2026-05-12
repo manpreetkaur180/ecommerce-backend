@@ -226,7 +226,7 @@ func (h *Handler) DeleteProduct(c *fiber.Ctx) error {
 	return utils.SuccessResponse(
 		c,
 		200,
-		"product deleted successfully",
+		"product deactivated successfully",
 		nil,
 	)
 }

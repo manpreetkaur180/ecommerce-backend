@@ -76,22 +76,6 @@ func SendVerificationEmail(
 	)
 }
 
-func SendForgotPasswordVerificationEmail(
-	name string,
-	email string,
-	verifyLink string,
-) error {
-	return sendEmailTemplate(
-		email,
-		"Verify Password Reset Request",
-		"forgot_password_verify",
-		map[string]string{
-			"name": name,
-			"link": verifyLink,
-		},
-	)
-}
-
 func SendResetPasswordEmail(
 	name string,
 	email string,

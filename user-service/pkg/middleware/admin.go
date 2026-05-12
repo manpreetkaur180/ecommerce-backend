@@ -1,11 +1,12 @@
 package middleware
 
 import (
-	"user-service/internal/user"
 	"user-service/pkg/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
+
+const adminRole = "admin"
 
 func RequireAdmin() fiber.Handler {
 
@@ -13,7 +14,7 @@ func RequireAdmin() fiber.Handler {
 
 		role, ok := c.Locals("role").(string)
 
-		if !ok || role != user.RoleAdmin {
+		if !ok || role != adminRole {
 			return utils.ErrorResponse(
 				c,
 				403,

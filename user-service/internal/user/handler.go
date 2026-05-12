@@ -84,6 +84,47 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		},
 	)
 }
+
+func (h *Handler) RefreshToken(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return utils.ErrorResponse(c, 401, "unauthorized")
+	}
+
+	user, err := h.Service.FindByID(userID)
+	if err != nil {
+		return utils.ErrorResponse(c, 401, err.Error())
+	}
+
+	token, err := utils.GenerateJWT(
+		user.ID,
+		user.Role,
+		user.IsSeller,
+	)
+
+	if err != nil {
+		return utils.ErrorResponse(c, 500, "failed to generate token")
+	}
+
+	return utils.SuccessResponse(
+		c,
+		200,
+		"token refreshed successfully",
+		fiber.Map{
+			"token": token,
+			"user": fiber.Map{
+				"id":          user.ID,
+				"name":        user.Name,
+				"email":       user.Email,
+				"phone":       user.Phone,
+				"role":        user.Role,
+				"is_seller":   user.IsSeller,
+				"is_verified": user.IsVerified,
+			},
+		},
+	)
+}
+
 func (h *Handler) SendOTP(c *fiber.Ctx) error {
 
 	var req LoginRequest
@@ -230,20 +271,27 @@ func (h *Handler) VerifyEmail(c *fiber.Ctx) error {
 	token := c.Query("token")
 
 	if token == "" {
-		return utils.ErrorResponse(c, 400, "token required")
+		return c.Status(400).Type("html", "utf-8").SendString(statusPageHTML(
+			"Invalid Link",
+			"Email verification link is missing a token.",
+			false,
+		))
 	}
 
 	err := h.Service.VerifyEmail(token)
 	if err != nil {
-		return utils.ErrorResponse(c, 400, err.Error())
+		return c.Status(400).Type("html", "utf-8").SendString(statusPageHTML(
+			"Verification Failed",
+			err.Error(),
+			false,
+		))
 	}
 
-	return utils.SuccessResponse(
-		c,
-		200,
-		"email verified successfully",
-		nil,
-	)
+	return c.Type("html", "utf-8").SendString(statusPageHTML(
+		"Email Verified",
+		"Your email has been verified successfully. You can now log in.",
+		true,
+	))
 }
 
 func (h *Handler) ForgotPassword(c *fiber.Ctx) error {
@@ -268,23 +316,8 @@ func (h *Handler) ForgotPassword(c *fiber.Ctx) error {
 	return utils.SuccessResponse(
 		c,
 		200,
-		"password reset verification email sent",
+		"password reset link sent to email",
 		nil,
-	)
-}
-
-func (h *Handler) VerifyResetPassword(c *fiber.Ctx) error {
-	token := c.Query("token")
-	if token == "" {
-		return c.Status(400).SendString("invalid verification link")
-	}
-
-	if err := h.Service.VerifyResetPasswordRequest(token); err != nil {
-		return c.Status(400).SendString("verification failed: " + err.Error())
-	}
-
-	return c.SendString(
-		"Email verified successfully. A reset password link has been sent to your email.",
 	)
 }
 
@@ -344,14 +377,22 @@ func (h *Handler) ResetPassword(c *fiber.Ctx) error {
 	if err := h.Service.ResetPassword(req.Token, req.NewPassword, req.ConfirmPassword); err != nil {
 		// if this came from the HTML form, show a friendly message
 		if !strings.Contains(strings.ToLower(c.Get("Content-Type")), "application/json") {
-			return c.Status(400).SendString("reset failed: " + err.Error())
+			return c.Status(400).Type("html", "utf-8").SendString(statusPageHTML(
+				"Reset Failed",
+				err.Error(),
+				false,
+			))
 		}
 		return utils.ErrorResponse(c, 400, err.Error())
 	}
 
 	// HTML form success
 	if !strings.Contains(strings.ToLower(c.Get("Content-Type")), "application/json") {
-		return c.SendString("Password reset successfully. You can now login.")
+		return c.Type("html", "utf-8").SendString(statusPageHTML(
+			"Password Reset",
+			"Your password has been reset successfully. You can now log in with your new password.",
+			true,
+		))
 	}
 
 	return utils.SuccessResponse(
@@ -360,6 +401,36 @@ func (h *Handler) ResetPassword(c *fiber.Ctx) error {
 		"password reset successfully",
 		nil,
 	)
+}
+
+func statusPageHTML(title string, message string, success bool) string {
+	accent := "#4f7cff"
+	if !success {
+		accent = "#ff6b6b"
+	}
+
+	return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>` + title + `</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0b1220;color:#e8eefc;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}
+    .card{width:100%;max-width:440px;background:#121a2b;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .mark{width:42px;height:42px;border-radius:14px;background:` + accent + `;margin-bottom:14px}
+    h1{font-size:22px;margin:0 0 10px}
+    p{margin:0;color:#b8c6e6;line-height:1.55}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="mark"></div>
+    <h1>` + title + `</h1>
+    <p>` + message + `</p>
+  </div>
+</body>
+</html>`
 }
 
 func (h *Handler) RequestUpdatePassword(c *fiber.Ctx) error {
@@ -392,7 +463,11 @@ func (h *Handler) RequestUpdatePassword(c *fiber.Ctx) error {
 func (h *Handler) UpdatePasswordForm(c *fiber.Ctx) error {
 	token := c.Query("token")
 	if token == "" {
-		return c.Status(400).SendString("invalid update link")
+		return c.Status(400).Type("html", "utf-8").SendString(statusPageHTML(
+			"Invalid Link",
+			"Password update link is missing a token.",
+			false,
+		))
 	}
 
 	c.Type("html", "utf-8")
@@ -451,13 +526,21 @@ func (h *Handler) ConfirmUpdatePassword(c *fiber.Ctx) error {
 		req.ConfirmNewPassword,
 	); err != nil {
 		if !strings.Contains(strings.ToLower(c.Get("Content-Type")), "application/json") {
-			return c.Status(400).SendString("update failed: " + err.Error())
+			return c.Status(400).Type("html", "utf-8").SendString(statusPageHTML(
+				"Update Failed",
+				err.Error(),
+				false,
+			))
 		}
 		return utils.ErrorResponse(c, 400, err.Error())
 	}
 
 	if !strings.Contains(strings.ToLower(c.Get("Content-Type")), "application/json") {
-		return c.SendString("Password updated successfully.")
+		return c.Type("html", "utf-8").SendString(statusPageHTML(
+			"Password Updated",
+			"Your password has been updated successfully. Use the new password the next time you log in.",
+			true,
+		))
 	}
 
 	return utils.SuccessResponse(
