@@ -1,4 +1,4 @@
-	package product
+package product
 
 import (
 	"product-service/pkg/middleware"
@@ -16,13 +16,18 @@ func RegisterRoutes(
 	// -----------------------------
 	// PUBLIC BUYER ROUTES
 	// -----------------------------
+	buyer := api.Group(
+		"/buyer",
+		middleware.RequireAuth(),
+		middleware.RequireBuyer(),
+	)
 
-	api.Get(
+	buyer.Get(
 		"/products",
 		handler.GetAllProducts,
 	)
 
-	api.Get(
+	buyer.Get(
 		"/products/:id",
 		handler.GetProductByID,
 	)
