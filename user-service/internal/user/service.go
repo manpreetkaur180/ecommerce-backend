@@ -217,7 +217,6 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 		Password: string(hashed),
 
 		Role:       RoleBuyer,
-		IsSeller:   false,
 		IsVerified: false,
 	}
 

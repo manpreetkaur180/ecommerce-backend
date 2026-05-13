@@ -6,10 +6,9 @@ func RequireBuyer() fiber.Handler {
 
 	return func(c *fiber.Ctx) error {
 
-		isSeller, ok := c.Locals("is_seller").(bool)
+		role, ok := c.Locals("role").(string)
 
-		// sellers are NOT allowed
-		if !ok || isSeller {
+		if !ok || role != "buyer" {
 
 			return c.Status(403).JSON(fiber.Map{
 				"error": "buyer access required",

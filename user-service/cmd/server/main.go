@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 	"user-service/config"
 	"user-service/internal/user"
-	"user-service/pkg/middleware"
+
 	"user-service/pkg/utils"
 )
 
@@ -23,40 +23,9 @@ func main() {
 	}
 
 	app := fiber.New()
-	app.Get(
-		"/protected",
-		middleware.RequireAuth(),
-		func(c *fiber.Ctx) error {
+	
 
-			return c.JSON(fiber.Map{
-				"user_id":   c.Locals("user_id"),
-				"role":      c.Locals("role"),
-				"is_seller": c.Locals("is_seller"),
-			})
-		},
-	)
-	app.Get(
-		"/seller-test",
-		middleware.RequireAuth(),
-		middleware.RequireSeller(),
-		func(c *fiber.Ctx) error {
 
-			return c.JSON(fiber.Map{
-				"message": "seller access granted",
-			})
-		},
-	)
-	app.Get(
-		"/admin-test",
-		middleware.RequireAuth(),
-		middleware.RequireRoles("admin"),
-		func(c *fiber.Ctx) error {
-
-			return c.JSON(fiber.Map{
-				"message": "admin access granted",
-			})
-		},
-	)
 
 	// connect DB
 	db := config.ConnectDB()
@@ -71,6 +40,7 @@ func main() {
 		&user.PasswordUpdate{},
 		&seller.SellerApplication{},
 	)
+	migrateLegacySellerRole(db)
 	user.SeedAdmin(db)
 
 	// redis
@@ -127,5 +97,36 @@ func dropLegacySellerApplicationUniqueIndex(db *gorm.DB) {
 
 	if err := db.Migrator().DropIndex(&seller.SellerApplication{}, indexName); err != nil {
 		log.Println("Failed to drop old seller application user unique index:", err)
+	}
+}
+
+func migrateLegacySellerRole(db *gorm.DB) {
+	var hasLegacyColumn bool
+	if err := db.Raw(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_name = 'users'
+			AND column_name = 'is_seller'
+		)
+	`).Scan(&hasLegacyColumn).Error; err != nil {
+		log.Println("Failed to inspect legacy is_seller column:", err)
+		return
+	}
+
+	if !hasLegacyColumn {
+		return
+	}
+
+	if err := db.Exec(
+		"UPDATE users SET role = ? WHERE is_seller = TRUE",
+		user.RoleSeller,
+	).Error; err != nil {
+		log.Println("Failed to migrate seller roles:", err)
+		return
+	}
+
+	if err := db.Exec("ALTER TABLE users DROP COLUMN is_seller").Error; err != nil {
+		log.Println("Failed to drop legacy is_seller column:", err)
 	}
 }

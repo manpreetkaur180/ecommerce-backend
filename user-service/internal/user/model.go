@@ -12,10 +12,8 @@ type User struct {
 
 	Role string `gorm:"type:varchar(20);default:'buyer'"`
 
-	IsSeller bool `gorm:"default:false"`
-	
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type EmailVerification struct {
@@ -105,6 +103,7 @@ type UpdatePasswordConfirmRequest struct {
 }
 
 const (
-	RoleBuyer = "buyer"
-	RoleAdmin = "admin"
+	RoleBuyer  = "buyer"
+	RoleSeller = "seller"
+	RoleAdmin  = "admin"
 )

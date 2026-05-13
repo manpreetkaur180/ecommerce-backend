@@ -1,4 +1,4 @@
-	package middleware
+package middleware
 
 import (
 	"strings"
@@ -46,7 +46,6 @@ func RequireAuth() fiber.Handler {
 		// store user data in request context
 		c.Locals("user_id", claims.UserID)
 		c.Locals("role", claims.Role)
-		c.Locals("is_seller", claims.IsSeller)
 
 		return c.Next()
 	}

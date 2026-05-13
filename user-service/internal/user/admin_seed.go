@@ -42,7 +42,6 @@ func SeedAdmin(db *gorm.DB) {
 		Password:   string(hashedPassword),
 		IsVerified: true,
 		Role:       RoleAdmin,
-		IsSeller:   false,
 	}
 
 	if err := db.Create(&admin).Error; err != nil {

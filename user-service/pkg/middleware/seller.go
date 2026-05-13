@@ -10,9 +10,9 @@ func RequireSeller() fiber.Handler {
 
 	return func(c *fiber.Ctx) error {
 
-		isSeller, ok := c.Locals("is_seller").(bool)
+		role, ok := c.Locals("role").(string)
 
-		if !ok || !isSeller {
+		if !ok || role != "seller" {
 			return utils.ErrorResponse(
 				c,
 				403,

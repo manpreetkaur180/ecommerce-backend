@@ -58,7 +58,6 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	token, err := utils.GenerateJWT(
 		user.ID,
 		user.Role,
-		user.IsSeller,
 	)
 
 	if err != nil {
@@ -78,7 +77,6 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 				"email":       user.Email,
 				"phone":       user.Phone,
 				"role":        user.Role,
-				"is_seller":   user.IsSeller,
 				"is_verified": user.IsVerified,
 			},
 		},
@@ -99,7 +97,6 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 	token, err := utils.GenerateJWT(
 		user.ID,
 		user.Role,
-		user.IsSeller,
 	)
 
 	if err != nil {
@@ -118,7 +115,6 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 				"email":       user.Email,
 				"phone":       user.Phone,
 				"role":        user.Role,
-				"is_seller":   user.IsSeller,
 				"is_verified": user.IsVerified,
 			},
 		},
@@ -240,7 +236,6 @@ func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
 	token, err := utils.GenerateJWT(
 		user.ID,
 		user.Role,
-		user.IsSeller,
 	)
 
 	if err != nil {
@@ -259,7 +254,6 @@ func (h *Handler) LoginWithOTP(c *fiber.Ctx) error {
 				"email":       user.Email,
 				"phone":       user.Phone,
 				"role":        user.Role,
-				"is_seller":   user.IsSeller,
 				"is_verified": user.IsVerified,
 			},
 		},

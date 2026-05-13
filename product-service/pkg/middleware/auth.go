@@ -7,11 +7,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
+
 type JWTClaims struct {
-	UserID    uint   `json:"user_id"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
-	IsSeller  bool   `json:"is_seller"`
+	UserID uint   `json:"user_id"`
+	Email  string `json:"email"`
+	Role   string `json:"role"`
 
 	jwt.RegisteredClaims
 }
@@ -68,8 +68,7 @@ func RequireAuth() fiber.Handler {
 		c.Locals("user_id", claims.UserID)
 		c.Locals("email", claims.Email)
 		c.Locals("role", claims.Role)
-		c.Locals("is_seller", claims.IsSeller)
 
 		return c.Next()
 	}
-}	
+}

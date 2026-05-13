@@ -29,7 +29,7 @@ func (s *Service) ApplySeller(
 	}
 
 	// already seller
-	if existingUser.IsSeller {
+	if existingUser.Role == user.RoleSeller {
 		return errors.New("user is already a seller")
 	}
 
@@ -116,11 +116,11 @@ func (s *Service) ApproveApplication(
 			return errors.New("user not found")
 		}
 
-		// update seller status
-		existingUser.IsSeller = true
+		// promote the user through the single RBAC source of truth
+		existingUser.Role = user.RoleSeller
 
 		if err := tx.Save(&existingUser).Error; err != nil {
-			return errors.New("failed to update user seller status")
+			return errors.New("failed to update user role")
 		}
 
 		// approve application

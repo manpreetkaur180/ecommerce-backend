@@ -12,9 +12,8 @@ import (
 )
 
 type JWTClaims struct {
-	UserID   uint   `json:"user_id"`
-	Role     string `json:"role"`
-	IsSeller bool   `json:"is_seller"`
+	UserID uint   `json:"user_id"`
+	Role   string `json:"role"`
 
 	jwt.RegisteredClaims
 }
@@ -47,7 +46,6 @@ func GenerateToken() string {
 func GenerateJWT(
 	userID uint,
 	role string,
-	isSeller bool,
 ) (string, error) {
 
 	expHours := 24
@@ -59,9 +57,8 @@ func GenerateJWT(
 	}
 
 	claims := JWTClaims{
-		UserID:   userID,
-		Role:     role,
-		IsSeller: isSeller,
+		UserID: userID,
+		Role:   role,
 
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(
