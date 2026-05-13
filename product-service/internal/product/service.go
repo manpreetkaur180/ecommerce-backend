@@ -195,6 +195,7 @@ func (s *Service) GetProductByID(
 		ReturnAvailable: product.ReturnAvailable,
 		Warranty:        product.Warranty,
 		InStock:         product.Stock > 0,
+		Stock:           product.Stock,
 
 		ExpectedDelivery: utils.GetExpectedDelivery(),
 	}

@@ -99,6 +99,8 @@ type BuyerProductDetailResponse struct {
 
 	InStock bool `json:"in_stock"`
 
+	Stock int `json:"stock"`
+
 	ExpectedDelivery string `json:"expected_delivery"`
 }
 type PaginationMeta struct {
@@ -109,11 +111,11 @@ type PaginationMeta struct {
 }
 
 type BuyerProductsPaginatedResponse struct {
-	Products []BuyerProductResponse `json:"products"`
-	Pagination PaginationMeta       `json:"pagination"`
+	Products   []BuyerProductResponse `json:"products"`
+	Pagination PaginationMeta         `json:"pagination"`
 }
 
 type SellerProductsPaginatedResponse struct {
-	Products []Product      `json:"products"`
+	Products   []Product      `json:"products"`
 	Pagination PaginationMeta `json:"pagination"`
 }
