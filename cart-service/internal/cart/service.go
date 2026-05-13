@@ -2,7 +2,7 @@ package cart
 
 import (
 	"errors"
-
+	"cart-service/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -174,15 +174,20 @@ func (s *Service) GetCart(userID uint, authorizationHeader string) (*CartRespons
 			Quantity:    item.Quantity,
 			Total:       total,
 
-			ExpectedDelivery: "25 Jan - 26 Jan",
+			ExpectedDelivery:  utils.GetExpectedDelivery(),
 		})
 	}
+	delivery := ""
+
+if len(responseItems) > 0 {
+	delivery = utils.GetExpectedDelivery()
+}
 
 	return &CartResponse{
 		Items:            responseItems,
 		Subtotal:         subtotal,
 		Total:            subtotal,
-		ExpectedDelivery: "25 Jan - 26 Jan",
+		ExpectedDelivery:  delivery,
 	}, nil
 }
 
@@ -191,6 +196,6 @@ func emptyCartResponse() *CartResponse {
 		Items:            []CartItemResponse{},
 		Subtotal:         0,
 		Total:            0,
-		ExpectedDelivery: "25 Jan - 26 Jan",
+		ExpectedDelivery: "",
 	}
 }
