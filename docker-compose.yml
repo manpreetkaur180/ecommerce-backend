@@ -94,6 +94,31 @@ services:
     env_file:
       - ./product-service/.env
 
+
+  cart-service:
+    build:
+      context: ./cart-service
+    container_name: cart-service
+    ports:
+      - "3005:3005"
+    env_file:
+      - ./cart-service/.env
+    depends_on:
+      - cart-db
+      - product-service
+  cart-db:
+    image: postgres:15
+    container_name: cart-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cart_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - cart_postgres_data:/var/lib/postgresql/data
+
 volumes:
   postgres_data:
   product_postgres_data:
+  cart_postgres_data:
