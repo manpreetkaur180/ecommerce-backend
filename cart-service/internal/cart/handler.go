@@ -22,12 +22,23 @@ func (h *Handler) AddToCart(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, 400, "invalid request body")
 	}
 
-	err := h.Service.AddToCart(userID, req.ProductID, req.Quantity, c.Get("Authorization"))
+	cart, err := h.Service.AddToCart(
+		userID,
+		req.ProductID,
+		req.Quantity,
+		c.Get("Authorization"),
+	)
+
 	if err != nil {
 		return utils.ErrorResponse(c, 400, err.Error())
 	}
 
-	return utils.SuccessResponse(c, 200, "product added to cart successfully", nil)
+	return utils.SuccessResponse(
+		c,
+		200,
+		"product added to cart successfully",
+		cart,
+	)
 }
 
 func (h *Handler) GetCart(c *fiber.Ctx) error {

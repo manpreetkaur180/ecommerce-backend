@@ -11,53 +11,77 @@ type Service struct {
 	ProductClient *ProductClient
 }
 
-func (s *Service) AddToCart(userID uint, productID uint, qty int, authorizationHeader string) error {
+func (s *Service) AddToCart(
+	userID uint,
+	productID uint,
+	qty int,
+	authorizationHeader string,
+) (*CartResponse, error) {
+
 	if productID == 0 {
-		return errors.New("product id is required")
+		return nil, errors.New("product id is required")
 	}
 
 	if qty < 1 {
-		return errors.New("quantity must be at least 1")
+		return nil, errors.New("quantity must be at least 1")
 	}
 
-	product, err := s.ProductClient.GetProduct(productID, authorizationHeader)
+	product, err := s.ProductClient.GetProduct(
+		productID,
+		authorizationHeader,
+	)
+
 	if err != nil {
-		return errors.New("product not found")
+		return nil, errors.New("product not found")
 	}
 
 	if product.Stock < qty {
-		return errors.New("insufficient stock")
+		return nil, errors.New("insufficient stock")
 	}
 
 	var cart Cart
 
-	err = s.DB.Where("user_id = ?", userID).First(&cart).Error
+	err = s.DB.Where("user_id = ?", userID).
+		First(&cart).Error
+
 	if err != nil {
+
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("failed to fetch cart")
+			return nil, errors.New("failed to fetch cart")
 		}
 
-		cart = Cart{UserID: userID}
+		cart = Cart{
+			UserID: userID,
+		}
+
 		if err := s.DB.Create(&cart).Error; err != nil {
-			return errors.New("failed to create cart")
+			return nil, errors.New("failed to create cart")
 		}
 	}
 
 	var item CartItem
 
-	err = s.DB.Where("cart_id = ? AND product_id = ?", cart.ID, productID).
-		First(&item).Error
+	err = s.DB.Where(
+		"cart_id = ? AND product_id = ?",
+		cart.ID,
+		productID,
+	).First(&item).Error
 
 	if err == nil {
 
 		newQty := item.Quantity + qty
 
 		if product.Stock < newQty {
-			return errors.New("insufficient stock")
+			return nil, errors.New("insufficient stock")
 		}
 
 		item.Quantity = newQty
-		return s.DB.Save(&item).Error
+
+		if err := s.DB.Save(&item).Error; err != nil {
+			return nil, err
+		}
+
+		return s.GetCart(userID, authorizationHeader)
 	}
 
 	item = CartItem{
@@ -66,7 +90,11 @@ func (s *Service) AddToCart(userID uint, productID uint, qty int, authorizationH
 		Quantity:  qty,
 	}
 
-	return s.DB.Create(&item).Error
+	if err := s.DB.Create(&item).Error; err != nil {
+		return nil, err
+	}
+
+	return s.GetCart(userID, authorizationHeader)
 }
 
 func (s *Service) ReduceItem(userID uint, productID uint) error {
