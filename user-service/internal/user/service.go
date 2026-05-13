@@ -25,6 +25,8 @@ type Service struct {
 	RDB *redis.Client
 }
 
+var ErrEmailAlreadyVerified = errors.New("email already verified")
+
 func NewService(db *gorm.DB, rdb *redis.Client) *Service {
 	return &Service{
 		DB:  db,
@@ -66,9 +68,6 @@ func (s *Service) SendOTP(
 ) error {
 
 	otp := generateOTP()
-
-	fmt.Println("SAVING OTP FOR:", identifier)
-	fmt.Println("OTP:", otp)
 
 	err := s.RDB.Set(
 		config.Ctx,
@@ -118,8 +117,7 @@ func (s *Service) VerifyOTP(identifier, otp string) error {
 	if storedOTP != otp {
 		return fmt.Errorf("invalid otp")
 	}
-	fmt.Println("VERIFYING OTP FOR:", identifier)
-	fmt.Println("INPUT OTP:", otp)
+
 	// delete after use
 	s.RDB.Del(config.Ctx, key)
 
@@ -136,6 +134,16 @@ func (s *Service) FindByIdentifier(email, phone string) (*User, error) {
 	}
 
 	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	return &user, nil
+}
+
+func (s *Service) FindByID(userID uint) (*User, error) {
+	var user User
+
+	if err := s.DB.First(&user, userID).Error; err != nil {
 		return nil, errors.New("user not found")
 	}
 
@@ -205,10 +213,12 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 
 	// 7. CREATE USER
 	user := User{
-		Name:       req.Name,
-		Email:      req.Email,
-		Phone:      req.Phone,
-		Password:   string(hashed),
+		Name:     req.Name,
+		Email:    req.Email,
+		Phone:    req.Phone,
+		Password: string(hashed),
+
+		Role:       RoleBuyer,
 		IsVerified: false,
 	}
 
@@ -331,6 +341,10 @@ func (s *Service) VerifyEmail(
 		return errors.New("invalid verification token")
 	}
 
+	if verification.Used {
+		return ErrEmailAlreadyVerified
+	}
+
 	if time.Now().After(verification.ExpiresAt) {
 		return errors.New("verification token expired")
 	}
@@ -345,13 +359,25 @@ func (s *Service) VerifyEmail(
 		return errors.New("user not found")
 	}
 
+	if user.IsVerified {
+		verification.Used = true
+		if err := s.DB.Save(&verification).Error; err != nil {
+			return errors.New("failed to verify user")
+		}
+
+		return ErrEmailAlreadyVerified
+	}
+
 	user.IsVerified = true
 
 	if err := s.DB.Save(&user).Error; err != nil {
 		return errors.New("failed to verify user")
 	}
 
-	s.DB.Delete(&verification)
+	verification.Used = true
+	if err := s.DB.Save(&verification).Error; err != nil {
+		return errors.New("failed to verify user")
+	}
 
 	return nil
 }
@@ -367,78 +393,15 @@ func (s *Service) ForgotPassword(email string) error {
 		return errors.New("user not found")
 	}
 
-	rawToken := generateVerificationToken()
-	hashedToken := hashToken(rawToken)
-
-	verification := PasswordResetVerification{
-		UserID:    user.ID,
-		TokenHash: hashedToken,
-		ExpiresAt: time.Now().Add(15 * time.Minute),
-	}
-
-	if err := s.DB.Create(&verification).Error; err != nil {
-		return errors.New("failed to create reset verification")
-	}
-
-	verifyLink := fmt.Sprintf(
-		"%s/api/v1/user/verify-reset-password?token=%s",
-		publicUserServiceURL(),
-		rawToken,
-	)
-
-	if err := utils.SendForgotPasswordVerificationEmail(
-		user.Name,
-		user.Email,
-		verifyLink,
-	); err != nil {
-		return errors.New("failed to send verification email")
-	}
-
-	return nil
-}
-
-func (s *Service) VerifyResetPasswordRequest(rawToken string) error {
-	if rawToken == "" {
-		return errors.New("token required")
-	}
-
-	hashedToken := hashToken(rawToken)
-
-	var verification PasswordResetVerification
-	if err := s.DB.Where("token_hash = ?", hashedToken).First(&verification).Error; err != nil {
-		return errors.New("invalid verification token")
-	}
-
-	if time.Now().After(verification.ExpiresAt) {
-		return errors.New("verification token expired")
-	}
-
-	var user User
-	if err := s.DB.First(&user, verification.UserID).Error; err != nil {
-		return errors.New("user not found")
-	}
-
-	// create reset token (separate from verification token)
-	rawResetToken := generateVerificationToken()
-	hashedResetToken := hashToken(rawResetToken)
-
-	reset := PasswordReset{
-		UserID:    user.ID,
-		TokenHash: hashedResetToken,
-		ExpiresAt: time.Now().Add(15 * time.Minute),
-	}
-
-	if err := s.DB.Create(&reset).Error; err != nil {
+	resetToken, err := utils.GeneratePasswordResetJWT(user.ID)
+	if err != nil {
 		return errors.New("failed to create reset token")
 	}
-
-	// invalidate verification token
-	s.DB.Delete(&verification)
 
 	resetLink := fmt.Sprintf(
 		"%s/api/v1/user/reset-password?token=%s",
 		publicUserServiceURL(),
-		rawResetToken,
+		resetToken,
 	)
 
 	if err := utils.SendResetPasswordEmail(
@@ -469,19 +432,18 @@ func (s *Service) ResetPassword(rawToken, newPassword, confirmPassword string) e
 		return err
 	}
 
-	hashedToken := hashToken(rawToken)
-
-	var reset PasswordReset
-	if err := s.DB.Where("token_hash = ?", hashedToken).First(&reset).Error; err != nil {
+	claims, err := utils.ParsePasswordResetJWT(rawToken)
+	if err != nil {
 		return errors.New("invalid reset token")
-	}
-	if time.Now().After(reset.ExpiresAt) {
-		return errors.New("reset token expired")
 	}
 
 	var user User
-	if err := s.DB.First(&user, reset.UserID).Error; err != nil {
+	if err := s.DB.First(&user, claims.UserID).Error; err != nil {
 		return errors.New("user not found")
+	}
+
+	if claims.IssuedAt == nil || claims.IssuedAt.Time.Before(user.UpdatedAt.Truncate(time.Second)) {
+		return errors.New("invalid reset token")
 	}
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), 10)
@@ -494,9 +456,6 @@ func (s *Service) ResetPassword(rawToken, newPassword, confirmPassword string) e
 	if err := s.DB.Save(&user).Error; err != nil {
 		return errors.New("failed to update password")
 	}
-
-	// invalidate reset token after use
-	s.DB.Delete(&reset)
 
 	return nil
 }

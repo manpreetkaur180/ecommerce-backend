@@ -2,6 +2,7 @@ package user
 
 import (
 	"time"
+	"user-service/pkg/middleware"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -26,11 +27,11 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 
 	userRoutes.Post("/register", authLimiter, handler.Register)
 	userRoutes.Post("/login", authLimiter, handler.Login)
+	userRoutes.Post("/refresh-token", middleware.RequireAuth(), handler.RefreshToken)
 	userRoutes.Post("/send-otp", authLimiter, handler.SendOTP)
 	userRoutes.Post("/login-otp", authLimiter, handler.LoginWithOTP)
 	userRoutes.Get("/verify-email", handler.VerifyEmail)
 	userRoutes.Post("/forgot-password", authLimiter, handler.ForgotPassword)
-	userRoutes.Get("/verify-reset-password", handler.VerifyResetPassword)
 	userRoutes.Get("/reset-password", handler.ResetPasswordForm)
 	userRoutes.Post("/reset-password", handler.ResetPassword)
 	userRoutes.Post("/update-password", authLimiter, handler.RequestUpdatePassword)

@@ -3,9 +3,9 @@ package services
 import (
 	"fmt"
 
+	"errors"
 	"message-service/internal/models"
 	"message-service/internal/templates"
-	"errors"
 )
 
 type Sender interface {
@@ -49,13 +49,6 @@ func (s *MessageService) SendEmail(req models.EmailRequest) error {
 	case "verify_email":
 
 		content = templates.VerifyEmailTemplate(
-			req.Data["name"].(string),
-			req.Data["link"].(string),
-		)
-
-	case "forgot_password_verify":
-
-		content = templates.ForgotPasswordVerifyTemplate(
 			req.Data["name"].(string),
 			req.Data["link"].(string),
 		)

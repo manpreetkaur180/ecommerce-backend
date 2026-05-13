@@ -70,3 +70,55 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
+      
+  product-db:
+    image: postgres:15
+    container_name: product-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: product_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - product_postgres_data:/var/lib/postgresql/data
+  
+  product-service:
+    build:
+      context: ./product-service
+    container_name: product-service
+    ports:
+      - "3004:3004"
+    depends_on:
+      - product-db
+    env_file:
+      - ./product-service/.env
+
+
+  cart-service:
+    build:
+      context: ./cart-service
+    container_name: cart-service
+    ports:
+      - "3005:3005"
+    env_file:
+      - ./cart-service/.env
+    depends_on:
+      - cart-db
+      - product-service
+  cart-db:
+    image: postgres:15
+    container_name: cart-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cart_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - cart_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+  product_postgres_data:
+  cart_postgres_data:
