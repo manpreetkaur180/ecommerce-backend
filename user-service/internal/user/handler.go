@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"strings"
 	"user-service/pkg/utils"
 
@@ -274,6 +275,14 @@ func (h *Handler) VerifyEmail(c *fiber.Ctx) error {
 
 	err := h.Service.VerifyEmail(token)
 	if err != nil {
+		if errors.Is(err, ErrEmailAlreadyVerified) {
+			return c.Type("html", "utf-8").SendString(statusPageHTML(
+				"Already Verified",
+				"Your email is already verified. You can log in.",
+				true,
+			))
+		}
+
 		return c.Status(400).Type("html", "utf-8").SendString(statusPageHTML(
 			"Verification Failed",
 			err.Error(),

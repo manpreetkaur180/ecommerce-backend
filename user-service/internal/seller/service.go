@@ -2,6 +2,7 @@ package seller
 
 import (
 	"errors"
+	"strings"
 	"user-service/internal/user"
 
 	"gorm.io/gorm"
@@ -89,8 +90,16 @@ func (s *Service) GetAllApplications() ([]SellerApplication, error) {
 }
 func (s *Service) ApproveApplication(
 	applicationID uint,
-) error {
-	return s.DB.Transaction(func(tx *gorm.DB) error {
+	adminNote string,
+) (*SellerApplication, error) {
+	adminNote = strings.TrimSpace(adminNote)
+	if adminNote == "" {
+		return nil, errors.New("admin note is required")
+	}
+
+	var approvedApplication SellerApplication
+
+	err := s.DB.Transaction(func(tx *gorm.DB) error {
 		var application SellerApplication
 
 		if err := tx.First(
@@ -125,18 +134,30 @@ func (s *Service) ApproveApplication(
 
 		// approve application
 		application.Status = StatusApproved
+		application.AdminNote = adminNote
 
 		if err := tx.Save(&application).Error; err != nil {
 			return errors.New("failed to approve application")
 		}
 
+		approvedApplication = application
 		return nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &approvedApplication, nil
 }
 func (s *Service) RejectApplication(
 	applicationID uint,
 	adminNote string,
-) error {
+) (*SellerApplication, error) {
+	adminNote = strings.TrimSpace(adminNote)
+	if adminNote == "" {
+		return nil, errors.New("admin note is required")
+	}
 
 	var application SellerApplication
 
@@ -145,19 +166,19 @@ func (s *Service) RejectApplication(
 		applicationID,
 	).Error; err != nil {
 
-		return errors.New("application not found")
+		return nil, errors.New("application not found")
 	}
 
 	if application.Status != StatusPending {
-		return errors.New("application already processed")
+		return nil, errors.New("application already processed")
 	}
 
 	application.Status = StatusRejected
 	application.AdminNote = adminNote
 
 	if err := s.DB.Save(&application).Error; err != nil {
-		return errors.New("failed to reject application")
+		return nil, errors.New("failed to reject application")
 	}
 
-	return nil
+	return &application, nil
 }

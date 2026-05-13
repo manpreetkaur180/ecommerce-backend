@@ -23,9 +23,6 @@ func main() {
 	}
 
 	app := fiber.New()
-	
-
-
 
 	// connect DB
 	db := config.ConnectDB()
@@ -40,7 +37,6 @@ func main() {
 		&user.PasswordUpdate{},
 		&seller.SellerApplication{},
 	)
-	migrateLegacySellerRole(db)
 	user.SeedAdmin(db)
 
 	// redis
@@ -97,36 +93,5 @@ func dropLegacySellerApplicationUniqueIndex(db *gorm.DB) {
 
 	if err := db.Migrator().DropIndex(&seller.SellerApplication{}, indexName); err != nil {
 		log.Println("Failed to drop old seller application user unique index:", err)
-	}
-}
-
-func migrateLegacySellerRole(db *gorm.DB) {
-	var hasLegacyColumn bool
-	if err := db.Raw(`
-		SELECT EXISTS (
-			SELECT 1
-			FROM information_schema.columns
-			WHERE table_name = 'users'
-			AND column_name = 'is_seller'
-		)
-	`).Scan(&hasLegacyColumn).Error; err != nil {
-		log.Println("Failed to inspect legacy is_seller column:", err)
-		return
-	}
-
-	if !hasLegacyColumn {
-		return
-	}
-
-	if err := db.Exec(
-		"UPDATE users SET role = ? WHERE is_seller = TRUE",
-		user.RoleSeller,
-	).Error; err != nil {
-		log.Println("Failed to migrate seller roles:", err)
-		return
-	}
-
-	if err := db.Exec("ALTER TABLE users DROP COLUMN is_seller").Error; err != nil {
-		log.Println("Failed to drop legacy is_seller column:", err)
 	}
 }

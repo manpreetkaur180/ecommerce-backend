@@ -105,6 +105,53 @@ func (h *Handler) GetProductByID(c *fiber.Ctx) error {
 		)
 	}
 
+	role, ok := c.Locals("role").(string)
+	if !ok || role == "" {
+		return utils.ErrorResponse(
+			c,
+			403,
+			"role not found",
+		)
+	}
+
+	if role == "seller" {
+		sellerID, ok := c.Locals("user_id").(uint)
+		if !ok {
+			return utils.ErrorResponse(
+				c,
+				401,
+				"unauthorized",
+			)
+		}
+
+		product, err := h.Service.GetSellerProductByID(
+			sellerID,
+			uint(id),
+		)
+		if err != nil {
+			return utils.ErrorResponse(
+				c,
+				404,
+				err.Error(),
+			)
+		}
+
+		return utils.SuccessResponse(
+			c,
+			200,
+			"seller product fetched successfully",
+			product,
+		)
+	}
+
+	if role != "buyer" {
+		return utils.ErrorResponse(
+			c,
+			403,
+			"access denied",
+		)
+	}
+
 	product, err := h.Service.GetProductByID(uint(id))
 
 	if err != nil {

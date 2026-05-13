@@ -2,8 +2,9 @@ package product
 
 import (
 	"errors"
-	"product-service/pkg/utils"
 	"math"
+	"product-service/pkg/utils"
+
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -109,8 +110,6 @@ func (s *Service) GetAllProducts(
 
 	const limit = 5
 
-offset := (page - 1) * limit
-
 	var total int64
 
 	if err := s.DB.Model(&Product{}).
@@ -119,6 +118,10 @@ offset := (page - 1) * limit
 
 		return nil, errors.New("failed to count products")
 	}
+
+	totalPages := getTotalPages(total, limit)
+	page = normalizePage(page, totalPages)
+	offset := (page - 1) * limit
 
 	if err := s.DB.Where(
 		"is_active = ?",
@@ -152,8 +155,6 @@ offset := (page - 1) * limit
 			ExpectedDelivery: utils.GetExpectedDelivery(),
 		})
 	}
-
-	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	return &BuyerProductsPaginatedResponse{
 		Products: response,
@@ -201,6 +202,25 @@ func (s *Service) GetProductByID(
 	return &response, nil
 }
 
+func (s *Service) GetSellerProductByID(
+	sellerID uint,
+	productID uint,
+) (*Product, error) {
+
+	var product Product
+
+	if err := s.DB.Where(
+		"id = ? AND seller_id = ?",
+		productID,
+		sellerID,
+	).First(&product).Error; err != nil {
+
+		return nil, errors.New("product not found")
+	}
+
+	return &product, nil
+}
+
 func (s *Service) GetSellerProducts(
 	sellerID uint,
 	page int,
@@ -210,8 +230,6 @@ func (s *Service) GetSellerProducts(
 
 	const limit = 5
 
-offset := (page - 1) * limit
-
 	var total int64
 
 	if err := s.DB.Model(&Product{}).
@@ -220,6 +238,10 @@ offset := (page - 1) * limit
 
 		return nil, errors.New("failed to count seller products")
 	}
+
+	totalPages := getTotalPages(total, limit)
+	page = normalizePage(page, totalPages)
+	offset := (page - 1) * limit
 
 	if err := s.DB.Where(
 		"seller_id = ?",
@@ -232,8 +254,6 @@ offset := (page - 1) * limit
 		return nil, errors.New("failed to fetch seller products")
 	}
 
-	totalPages := int(math.Ceil(float64(total) / float64(limit)))
-
 	return &SellerProductsPaginatedResponse{
 		Products: products,
 
@@ -244,6 +264,26 @@ offset := (page - 1) * limit
 			TotalPages: totalPages,
 		},
 	}, nil
+}
+
+func getTotalPages(total int64, limit int) int {
+	if total == 0 {
+		return 0
+	}
+
+	return int(math.Ceil(float64(total) / float64(limit)))
+}
+
+func normalizePage(page int, totalPages int) int {
+	if page < 1 {
+		return 1
+	}
+
+	if totalPages > 0 && page > totalPages {
+		return totalPages
+	}
+
+	return page
 }
 
 func (s *Service) UpdateProduct(

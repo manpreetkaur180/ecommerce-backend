@@ -25,6 +25,8 @@ type Service struct {
 	RDB *redis.Client
 }
 
+var ErrEmailAlreadyVerified = errors.New("email already verified")
+
 func NewService(db *gorm.DB, rdb *redis.Client) *Service {
 	return &Service{
 		DB:  db,
@@ -339,6 +341,10 @@ func (s *Service) VerifyEmail(
 		return errors.New("invalid verification token")
 	}
 
+	if verification.Used {
+		return ErrEmailAlreadyVerified
+	}
+
 	if time.Now().After(verification.ExpiresAt) {
 		return errors.New("verification token expired")
 	}
@@ -353,13 +359,25 @@ func (s *Service) VerifyEmail(
 		return errors.New("user not found")
 	}
 
+	if user.IsVerified {
+		verification.Used = true
+		if err := s.DB.Save(&verification).Error; err != nil {
+			return errors.New("failed to verify user")
+		}
+
+		return ErrEmailAlreadyVerified
+	}
+
 	user.IsVerified = true
 
 	if err := s.DB.Save(&user).Error; err != nil {
 		return errors.New("failed to verify user")
 	}
 
-	s.DB.Delete(&verification)
+	verification.Used = true
+	if err := s.DB.Save(&verification).Error; err != nil {
+		return errors.New("failed to verify user")
+	}
 
 	return nil
 }

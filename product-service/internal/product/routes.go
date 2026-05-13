@@ -52,6 +52,11 @@ func RegisterRoutes(
 		handler.GetSellerProducts,
 	)
 
+	seller.Get(
+		"/products/:id",
+		handler.GetProductByID,
+	)
+
 	seller.Patch(
 		"/products/:id",
 		handler.UpdateProduct,

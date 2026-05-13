@@ -68,11 +68,26 @@ func (h *Handler) GetAllApplications(c *fiber.Ctx) error {
 		)
 	}
 
+	response := make([]SellerApplicationListResponse, 0, len(applications))
+	for _, application := range applications {
+		response = append(response, SellerApplicationListResponse{
+			ID:                  application.ID,
+			UserID:              application.UserID,
+			BusinessName:        application.BusinessName,
+			BusinessDescription: application.BusinessDescription,
+			GSTIN:               application.GSTIN,
+			AadharNumber:        application.AadharNumber,
+			Status:              application.Status,
+			CreatedAt:           application.CreatedAt,
+			UpdatedAt:           application.UpdatedAt,
+		})
+	}
+
 	return utils.SuccessResponse(
 		c,
 		200,
 		"seller applications fetched successfully",
-		applications,
+		response,
 	)
 }
 func (h *Handler) ApproveApplication(c *fiber.Ctx) error {
@@ -87,7 +102,21 @@ func (h *Handler) ApproveApplication(c *fiber.Ctx) error {
 		)
 	}
 
-	if err := h.Service.ApproveApplication(uint(id)); err != nil {
+	var req SellerApplicationDecisionRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(
+			c,
+			400,
+			"invalid request body",
+		)
+	}
+
+	application, err := h.Service.ApproveApplication(
+		uint(id),
+		req.AdminNote,
+	)
+	if err != nil {
 		return utils.ErrorResponse(
 			c,
 			400,
@@ -99,7 +128,7 @@ func (h *Handler) ApproveApplication(c *fiber.Ctx) error {
 		c,
 		200,
 		"seller application approved successfully",
-		nil,
+		toDecisionResponse(application),
 	)
 }
 func (h *Handler) RejectApplication(c *fiber.Ctx) error {
@@ -114,11 +143,7 @@ func (h *Handler) RejectApplication(c *fiber.Ctx) error {
 		)
 	}
 
-	type RejectRequest struct {
-		AdminNote string `json:"admin_note"`
-	}
-
-	var req RejectRequest
+	var req SellerApplicationDecisionRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return utils.ErrorResponse(
@@ -128,11 +153,11 @@ func (h *Handler) RejectApplication(c *fiber.Ctx) error {
 		)
 	}
 
-	if err := h.Service.RejectApplication(
+	application, err := h.Service.RejectApplication(
 		uint(id),
 		req.AdminNote,
-	); err != nil {
-
+	)
+	if err != nil {
 		return utils.ErrorResponse(
 			c,
 			400,
@@ -144,6 +169,21 @@ func (h *Handler) RejectApplication(c *fiber.Ctx) error {
 		c,
 		200,
 		"seller application rejected successfully",
-		nil,
+		toDecisionResponse(application),
 	)
+}
+
+func toDecisionResponse(application *SellerApplication) SellerApplicationDecisionResponse {
+	return SellerApplicationDecisionResponse{
+		ID:                  application.ID,
+		UserID:              application.UserID,
+		BusinessName:        application.BusinessName,
+		BusinessDescription: application.BusinessDescription,
+		GSTIN:               application.GSTIN,
+		AadharNumber:        application.AadharNumber,
+		Status:              application.Status,
+		AdminNote:           application.AdminNote,
+		CreatedAt:           application.CreatedAt,
+		UpdatedAt:           application.UpdatedAt,
+	}
 }
