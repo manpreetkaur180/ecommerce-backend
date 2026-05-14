@@ -14,25 +14,24 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 
 	"time"
 )
 
 type Service struct {
-	DB *gorm.DB
-
-	RDB *redis.Client
+	Repo *Repository
+	RDB  *redis.Client
 }
 
 var ErrEmailAlreadyVerified = errors.New("email already verified")
 
-func NewService(db *gorm.DB, rdb *redis.Client) *Service {
+func NewService(repo *Repository, rdb *redis.Client) *Service {
 	return &Service{
-		DB:  db,
-		RDB: rdb,
+		Repo: repo,
+		RDB:  rdb,
 	}
 }
+
 func generateOTP() string {
 	return fmt.Sprintf("%04d", rand.Intn(10000))
 }
@@ -46,9 +45,7 @@ func generateVerificationToken() string {
 }
 
 func hashToken(token string) string {
-
 	hash := sha256.Sum256([]byte(token))
-
 	return hex.EncodeToString(hash[:])
 }
 
@@ -57,7 +54,6 @@ func publicUserServiceURL() string {
 	if baseURL == "" {
 		baseURL = "http://localhost:3001"
 	}
-
 	return strings.TrimRight(baseURL, "/")
 }
 
@@ -80,9 +76,7 @@ func (s *Service) SendOTP(
 		return err
 	}
 
-	// -------- EMAIL OTP --------
 	if channel == "email" {
-
 		if err := utils.PublishOTPEmail(
 			user.Name,
 			user.Email,
@@ -95,9 +89,7 @@ func (s *Service) SendOTP(
 		return nil
 	}
 
-	// -------- SMS OTP --------
 	if channel == "phone" {
-
 		return utils.SendOTPSMS(
 			user.Phone,
 			otp,
@@ -106,6 +98,7 @@ func (s *Service) SendOTP(
 
 	return fmt.Errorf("invalid otp channel")
 }
+
 func (s *Service) VerifyOTP(identifier, otp string) error {
 	key := "otp:" + identifier
 
@@ -118,45 +111,32 @@ func (s *Service) VerifyOTP(identifier, otp string) error {
 		return fmt.Errorf("invalid otp")
 	}
 
-	// delete after use
 	s.RDB.Del(config.Ctx, key)
 
 	return nil
 }
+
 func (s *Service) FindByIdentifier(email, phone string) (*User, error) {
-	var user User
-	var err error
-
-	if email != "" {
-		err = s.DB.Where("email = ?", email).First(&user).Error
-	} else {
-		err = s.DB.Where("phone = ?", phone).First(&user).Error
-	}
-
+	u, err := s.Repo.FirstUserForLogin(email, phone)
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
 
-	return &user, nil
+	return u, nil
 }
 
 func (s *Service) FindByID(userID uint) (*User, error) {
-	var user User
-
-	if err := s.DB.First(&user, userID).Error; err != nil {
+	u, err := s.Repo.FirstUserByID(userID)
+	if err != nil {
 		return nil, errors.New("user not found")
 	}
-
-	return &user, nil
+	return u, nil
 }
 
 func (s *Service) Register(req RegisterRequest) (*User, error) {
 
-	// 1. normalize input
 	req.Email = utils.NormalizeEmail(req.Email)
 	req.Phone = utils.NormalizePhone(req.Phone)
-
-	// 2. REQUIRED FIELD CHECK (IMPORTANT ORDER FIX)
 
 	if req.Name == "" {
 		return nil, errors.New("name is required")
@@ -178,7 +158,6 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 		return nil, errors.New("confirm password is required")
 	}
 
-	// 3. FORMAT VALIDATION
 	if err := utils.ValidateEmail(req.Email); err != nil {
 		return nil, err
 	}
@@ -191,27 +170,23 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 		return nil, err
 	}
 
-	// 4. CHECK DUPLICATES
-	var existing User
-	if err := s.DB.Where("email = ?", req.Email).First(&existing).Error; err == nil {
+	if _, err := s.Repo.FirstUserByEmail(req.Email); err == nil {
 		return nil, errors.New("email already exists")
 	}
 
-	if err := s.DB.Where("phone = ?", req.Phone).First(&existing).Error; err == nil {
+	if _, err := s.Repo.FirstUserByPhone(req.Phone); err == nil {
 		return nil, errors.New("phone already exists")
 	}
-	// 5. PASSWORD MATCH
+
 	if req.Password != req.ConfirmPassword {
 		return nil, errors.New("passwords do not match")
 	}
 
-	// 6. HASH PASSWORD
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
 	}
 
-	// 7. CREATE USER
 	user := User{
 		Name:     req.Name,
 		Email:    req.Email,
@@ -222,7 +197,7 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 		IsVerified: false,
 	}
 
-	if err := s.DB.Create(&user).Error; err != nil {
+	if err := s.Repo.CreateUser(&user); err != nil {
 		return nil, errors.New("failed to create user")
 	}
 
@@ -250,7 +225,7 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		}
 
-		if err := s.DB.Create(&verification).Error; err != nil {
+		if err := s.Repo.CreateEmailVerification(&verification); err != nil {
 			log.Println("Failed to create email verification token:", err)
 			return
 		}
@@ -275,11 +250,9 @@ func (s *Service) Register(req RegisterRequest) (*User, error) {
 
 func (s *Service) Login(req LoginRequest) (*User, error) {
 
-	// 1. normalize input
 	req.Email = utils.NormalizeEmail(req.Email)
 	req.Phone = utils.NormalizePhone(req.Phone)
 
-	// 2. validation
 	if req.Email == "" && req.Phone == "" {
 		return nil, errors.New("email or phone is required")
 	}
@@ -300,43 +273,28 @@ func (s *Service) Login(req LoginRequest) (*User, error) {
 		}
 	}
 
-	// 3. find user (clean query)
-	var user User
-	query := s.DB
-
-	if req.Email != "" {
-		query = query.Where("email = ?", req.Email)
-	} else {
-		query = query.Where("phone = ?", req.Phone)
-	}
-
-	if err := query.First(&user).Error; err != nil {
+	user, err := s.Repo.FirstUserForLogin(req.Email, req.Phone)
+	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 	if !user.IsVerified {
 		return nil, errors.New("please verify your email before login")
 	}
 
-	// 4. verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
-	return &user, nil
+	return user, nil
 }
+
 func (s *Service) VerifyEmail(
 	rawToken string,
 ) error {
 
 	hashedToken := hashToken(rawToken)
 
-	var verification EmailVerification
-
-	err := s.DB.Where(
-		"token_hash = ?",
-		hashedToken,
-	).First(&verification).Error
-
+	verification, err := s.Repo.FirstEmailVerificationByTokenHash(hashedToken)
 	if err != nil {
 		return errors.New("invalid verification token")
 	}
@@ -349,19 +307,14 @@ func (s *Service) VerifyEmail(
 		return errors.New("verification token expired")
 	}
 
-	var user User
-
-	if err := s.DB.First(
-		&user,
-		verification.UserID,
-	).Error; err != nil {
-
+	user, err := s.Repo.FirstUserByID(verification.UserID)
+	if err != nil {
 		return errors.New("user not found")
 	}
 
 	if user.IsVerified {
 		verification.Used = true
-		if err := s.DB.Save(&verification).Error; err != nil {
+		if err := s.Repo.SaveEmailVerification(verification); err != nil {
 			return errors.New("failed to verify user")
 		}
 
@@ -370,12 +323,12 @@ func (s *Service) VerifyEmail(
 
 	user.IsVerified = true
 
-	if err := s.DB.Save(&user).Error; err != nil {
+	if err := s.Repo.SaveUser(user); err != nil {
 		return errors.New("failed to verify user")
 	}
 
 	verification.Used = true
-	if err := s.DB.Save(&verification).Error; err != nil {
+	if err := s.Repo.SaveEmailVerification(verification); err != nil {
 		return errors.New("failed to verify user")
 	}
 
@@ -388,8 +341,8 @@ func (s *Service) ForgotPassword(email string) error {
 		return err
 	}
 
-	var user User
-	if err := s.DB.Where("email = ?", email).First(&user).Error; err != nil {
+	user, err := s.Repo.FirstUserByEmail(email)
+	if err != nil {
 		return errors.New("user not found")
 	}
 
@@ -437,8 +390,8 @@ func (s *Service) ResetPassword(rawToken, newPassword, confirmPassword string) e
 		return errors.New("invalid reset token")
 	}
 
-	var user User
-	if err := s.DB.First(&user, claims.UserID).Error; err != nil {
+	user, err := s.Repo.FirstUserByID(claims.UserID)
+	if err != nil {
 		return errors.New("user not found")
 	}
 
@@ -453,7 +406,7 @@ func (s *Service) ResetPassword(rawToken, newPassword, confirmPassword string) e
 
 	user.Password = string(hashed)
 
-	if err := s.DB.Save(&user).Error; err != nil {
+	if err := s.Repo.SaveUser(user); err != nil {
 		return errors.New("failed to update password")
 	}
 
@@ -466,8 +419,8 @@ func (s *Service) RequestUpdatePassword(email string) error {
 		return err
 	}
 
-	var user User
-	if err := s.DB.Where("email = ?", email).First(&user).Error; err != nil {
+	user, err := s.Repo.FirstUserByEmail(email)
+	if err != nil {
 		return errors.New("user not found")
 	}
 
@@ -484,7 +437,7 @@ func (s *Service) RequestUpdatePassword(email string) error {
 		ExpiresAt: time.Now().Add(15 * time.Minute),
 	}
 
-	if err := s.DB.Create(&update).Error; err != nil {
+	if err := s.Repo.CreatePasswordUpdate(&update); err != nil {
 		return errors.New("failed to create update token")
 	}
 
@@ -527,16 +480,16 @@ func (s *Service) ConfirmUpdatePassword(rawToken, oldPassword, newPassword, conf
 
 	hashedToken := hashToken(rawToken)
 
-	var update PasswordUpdate
-	if err := s.DB.Where("token_hash = ?", hashedToken).First(&update).Error; err != nil {
+	update, err := s.Repo.FirstPasswordUpdateByTokenHash(hashedToken)
+	if err != nil {
 		return errors.New("invalid update token")
 	}
 	if time.Now().After(update.ExpiresAt) {
 		return errors.New("update token expired")
 	}
 
-	var user User
-	if err := s.DB.First(&user, update.UserID).Error; err != nil {
+	user, err := s.Repo.FirstUserByID(update.UserID)
+	if err != nil {
 		return errors.New("user not found")
 	}
 	if !user.IsVerified {
@@ -553,10 +506,10 @@ func (s *Service) ConfirmUpdatePassword(rawToken, oldPassword, newPassword, conf
 	}
 
 	user.Password = string(hashed)
-	if err := s.DB.Save(&user).Error; err != nil {
+	if err := s.Repo.SaveUser(user); err != nil {
 		return errors.New("failed to update password")
 	}
 
-	s.DB.Delete(&update)
+	s.Repo.DeletePasswordUpdate(update)
 	return nil
 }

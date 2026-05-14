@@ -7,115 +7,33 @@ import (
 )
 
 type Product struct {
-	ID uint `gorm:"primaryKey" json:"id"`
+	ID uint `gorm:"primaryKey"`
 
-	SellerID uint `gorm:"not null;index" json:"seller_id"`
+	SellerID uint `gorm:"not null;index"`
 
-	Title string `gorm:"not null" json:"title"`
+	Title string `gorm:"not null"`
 
-	Description string `gorm:"type:text" json:"description"`
+	Description string `gorm:"type:text"`
 
-	Price float64 `gorm:"not null" json:"price"`
+	Price float64 `gorm:"not null"`
 
-	Stock int `gorm:"default:0" json:"stock"`
+	Stock int `gorm:"default:0"`
 
-	Category string `json:"category"`
+	Category string
 
-	ImageURLs datatypes.JSONSlice[string] `gorm:"type:json" json:"image_urls"`
+	ImageURLs datatypes.JSONSlice[string] `gorm:"type:json"`
 
-	Offers string `gorm:"type:text" json:"offers"`
+	Offers string `gorm:"type:text"`
 
-	Rating float64 `gorm:"default:0" json:"rating"`
+	Rating float64 `gorm:"default:0"`
 
-	ReturnAvailable bool `gorm:"default:false" json:"return_available"`
+	ReturnAvailable bool `gorm:"default:false"`
 
-	Warranty string `gorm:"type:text" json:"warranty,omitempty"`
+	Warranty string `gorm:"type:text"`
 
-	IsActive bool `gorm:"default:true" json:"is_active"`
+	IsActive bool `gorm:"default:true"`
 
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time
 
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type CreateProductRequest struct {
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Price       float64  `json:"price"`
-	Stock       int      `json:"stock"`
-	Category    string   `json:"category"`
-	ImageURLs   []string `json:"image_urls"`
-	Offers      string   `json:"offers"`
-
-	ReturnAvailable bool `json:"return_available"`
-
-	Warranty string `json:"warranty"`
-}
-
-type UpdateProductRequest struct {
-	Title       *string   `json:"title"`
-	Description *string   `json:"description"`
-	Price       *float64  `json:"price"`
-	Stock       *int      `json:"stock"`
-	Category    *string   `json:"category"`
-	ImageURLs   *[]string `json:"image_urls"`
-	Offers      *string   `json:"offers"`
-	IsActive    *bool     `json:"is_active"`
-
-	ReturnAvailable *bool `json:"return_available"`
-
-	Warranty *string `json:"warranty"`
-}
-
-type BuyerProductResponse struct {
-	ID               uint    `json:"id"`
-	Title            string  `json:"title"`
-	ImageURL         string  `json:"image_url"`
-	Description      string  `json:"description"`
-	Price            float64 `json:"price"`
-	Offers           string  `json:"offers"`
-	ExpectedDelivery string  `json:"expected_delivery"`
-}
-type BuyerProductDetailResponse struct {
-	ID uint `json:"id"`
-
-	Title string `json:"title"`
-
-	Description string `json:"description"`
-
-	Price float64 `json:"price"`
-
-	Category string `json:"category"`
-
-	ImageURLs []string `json:"image_urls"`
-
-	Offers string `json:"offers"`
-
-	Rating float64 `json:"rating"`
-
-	ReturnAvailable bool `json:"return_available"`
-
-	Warranty string `json:"warranty,omitempty"`
-
-	InStock bool `json:"in_stock"`
-
-	Stock int `json:"stock"`
-
-	ExpectedDelivery string `json:"expected_delivery"`
-}
-type PaginationMeta struct {
-	Page       int   `json:"page"`
-	Limit      int   `json:"limit"`
-	Total      int64 `json:"total"`
-	TotalPages int   `json:"total_pages"`
-}
-
-type BuyerProductsPaginatedResponse struct {
-	Products   []BuyerProductResponse `json:"products"`
-	Pagination PaginationMeta         `json:"pagination"`
-}
-
-type SellerProductsPaginatedResponse struct {
-	Products   []Product      `json:"products"`
-	Pagination PaginationMeta `json:"pagination"`
+	UpdatedAt time.Time
 }

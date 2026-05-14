@@ -128,7 +128,7 @@ func (h *Handler) ApproveApplication(c *fiber.Ctx) error {
 		c,
 		200,
 		"seller application approved successfully",
-		toDecisionResponse(application),
+		ToSellerApplicationDecisionResponse(application),
 	)
 }
 func (h *Handler) RejectApplication(c *fiber.Ctx) error {
@@ -169,21 +169,6 @@ func (h *Handler) RejectApplication(c *fiber.Ctx) error {
 		c,
 		200,
 		"seller application rejected successfully",
-		toDecisionResponse(application),
+		ToSellerApplicationDecisionResponse(application),
 	)
-}
-
-func toDecisionResponse(application *SellerApplication) SellerApplicationDecisionResponse {
-	return SellerApplicationDecisionResponse{
-		ID:                  application.ID,
-		UserID:              application.UserID,
-		BusinessName:        application.BusinessName,
-		BusinessDescription: application.BusinessDescription,
-		GSTIN:               application.GSTIN,
-		AadharNumber:        application.AadharNumber,
-		Status:              application.Status,
-		AdminNote:           application.AdminNote,
-		CreatedAt:           application.CreatedAt,
-		UpdatedAt:           application.UpdatedAt,
-	}
 }

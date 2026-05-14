@@ -1,19 +1,11 @@
 package cart
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
 )
-
-type ProductDTO struct {
-	ID          uint     `json:"id"`
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Price       float64  `json:"price"`
-	Stock       int      `json:"stock"`
-	ImageURLs   []string `json:"image_urls"`
-}
 
 type ProductClient struct {
 	BaseURL string
@@ -23,15 +15,28 @@ func NewProductClient(baseURL string) *ProductClient {
 	return &ProductClient{BaseURL: baseURL}
 }
 
-func (p *ProductClient) GetProduct(productID uint, authorizationHeader string) (*ProductDTO, error) {
+func (p *ProductClient) GetProducts(
+	productIDs []uint,
+	authorizationHeader string,
+) (map[uint]ProductDTO, error) {
 
-	url := fmt.Sprintf("%s/api/v1/buyer/products/%d", p.BaseURL, productID)
+	url := fmt.Sprintf("%s/api/v1/buyer/products/bulk", p.BaseURL)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	payload := map[string]interface{}{
+		"product_ids": productIDs,
+	}
+
+	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
 
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", authorizationHeader)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -41,16 +46,18 @@ func (p *ProductClient) GetProduct(productID uint, authorizationHeader string) (
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("product not found")
+		return nil, fmt.Errorf("failed to fetch products")
 	}
 
-	var result struct {
-		Data ProductDTO `json:"data"`
-	}
-
+	var result BulkProductsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
 
-	return &result.Data, nil
+	productsMap := make(map[uint]ProductDTO)
+	for _, product := range result.Data {
+		productsMap[product.ID] = product
+	}
+
+	return productsMap, nil
 }

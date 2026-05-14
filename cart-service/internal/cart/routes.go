@@ -28,9 +28,13 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 	// REDUCE QUANTITY
 	cart.Patch("/reduce", handler.ReduceItem)
 
+	// INCREASE QUANTITY
+	cart.Patch("/increase", handler.IncreaseItem)
+
 	// REMOVE ITEM
 	cart.Delete("/item/:product_id", handler.RemoveItem)
 
 	// CLEAR CART
 	cart.Delete("/", handler.ClearCart)
+
 }
