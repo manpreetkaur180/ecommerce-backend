@@ -6,7 +6,7 @@ type AddToCartRequest struct {
 	Quantity  int  `json:"quantity"`
 }
 
-type ReduceCartRequest struct {
+type UpdateCartItemRequest struct {
 	ProductID uint `json:"product_id"`
 }
 

@@ -123,3 +123,18 @@ func (r *Repository) ClearCart(cartID uint) error {
 		Where("cart_id = ?", cartID).
 		Delete(&CartItem{}).Error
 }
+func (r *Repository) IncrementCartItemQty(cartID uint, productID uint) error {
+	result := r.DB.Model(&CartItem{}).
+		Where("cart_id = ? AND product_id = ?", cartID, productID).
+		UpdateColumn("quantity", gorm.Expr("quantity + ?", 1))
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("item not found")
+	}
+
+	return nil
+}

@@ -76,7 +76,7 @@ func (h *Handler) ReduceItem(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, 401, "unauthorized")
 	}
 
-	var req ReduceCartRequest
+	var req UpdateCartItemRequest
 	if err := c.BodyParser(&req); err != nil {
 		return utils.ErrorResponse(c, 400, "invalid request body")
 	}
@@ -127,4 +127,25 @@ func (h *Handler) ClearCart(c *fiber.Ctx) error {
 	}
 
 	return utils.SuccessResponse(c, 200, "cart cleared successfully", nil)
+}
+func (h *Handler) IncreaseItem(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return utils.ErrorResponse(c, 401, "unauthorized")
+	}
+
+	var req UpdateCartItemRequest
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, 400, "invalid request body")
+	}
+
+	if req.ProductID == 0 {
+		return utils.ErrorResponse(c, 400, "product id is required")
+	}
+
+	if err := h.Service.IncreaseItem(userID, req.ProductID, c.Get("Authorization")); err != nil {
+		return utils.ErrorResponse(c, 400, err.Error())
+	}
+
+	return utils.SuccessResponse(c, 200, "cart item quantity increased successfully", nil)
 }

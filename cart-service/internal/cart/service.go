@@ -114,6 +114,28 @@ func (s *Service) ReduceItem(userID uint,productID uint) error {
 
 	return s.Repo.DeleteCartItem(item)
 }
+func (s *Service) IncreaseItem(userID uint, productID uint, authHeader string) error {
+	cart, err := s.Repo.GetCartByUserID(userID)
+	if err != nil {
+		return errors.New("cart not found")
+	}
+
+	item, err := s.Repo.GetCartItem(cart.ID, productID)
+	if err != nil {
+		return errors.New("item not found")
+	}
+
+	product, err := s.ProductClient.GetProduct(productID, authHeader)
+	if err != nil {
+		return errors.New("product not found")
+	}
+
+	if item.Quantity+1 > product.Stock {
+		return errors.New("insufficient stock")
+	}
+
+	return s.Repo.IncrementCartItemQty(cart.ID, productID)
+}
 
 func (s *Service) RemoveItem(
 	userID uint,
