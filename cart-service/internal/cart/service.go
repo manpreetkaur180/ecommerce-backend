@@ -2,13 +2,24 @@ package cart
 
 import (
 	"errors"
+	"log"
 	"cart-service/pkg/utils"
 	"gorm.io/gorm"
 )
 
 type Service struct {
-	DB            *gorm.DB
+	Repo          *Repository
 	ProductClient *ProductClient
+}
+
+func NewService(
+	repo *Repository,
+	productClient *ProductClient,
+) *Service {
+	return &Service{
+		Repo:          repo,
+		ProductClient: productClient,
+	}
 }
 
 func (s *Service) AddToCart(
@@ -18,13 +29,7 @@ func (s *Service) AddToCart(
 	authorizationHeader string,
 ) (*CartResponse, error) {
 
-	if productID == 0 {
-		return nil, errors.New("product id is required")
-	}
 
-	if qty < 1 {
-		return nil, errors.New("quantity must be at least 1")
-	}
 
 	product, err := s.ProductClient.GetProduct(
 		productID,
@@ -39,10 +44,7 @@ func (s *Service) AddToCart(
 		return nil, errors.New("insufficient stock")
 	}
 
-	var cart Cart
-
-	err = s.DB.Where("user_id = ?", userID).
-		First(&cart).Error
+	cart, err := s.Repo.GetCartByUserID(userID)
 
 	if err != nil {
 
@@ -50,105 +52,94 @@ func (s *Service) AddToCart(
 			return nil, errors.New("failed to fetch cart")
 		}
 
-		cart = Cart{
-			UserID: userID,
-		}
+		cart, err = s.Repo.CreateCart(userID)
 
-		if err := s.DB.Create(&cart).Error; err != nil {
+		if err != nil {
 			return nil, errors.New("failed to create cart")
 		}
 	}
 
-	var item CartItem
-
-	err = s.DB.Where(
-		"cart_id = ? AND product_id = ?",
-		cart.ID,
-		productID,
-	).First(&item).Error
+	item, err := s.Repo.GetCartItem(cart.ID, productID)
 
 	if err == nil {
 
 		newQty := item.Quantity + qty
 
-		if product.Stock < newQty {
+		if newQty > product.Stock {
 			return nil, errors.New("insufficient stock")
 		}
 
 		item.Quantity = newQty
 
-		if err := s.DB.Save(&item).Error; err != nil {
+		if err := s.Repo.UpdateCartItem(item); err != nil {
 			return nil, err
 		}
 
 		return s.GetCart(userID, authorizationHeader)
 	}
 
-	item = CartItem{
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	newItem := &CartItem{
 		CartID:    cart.ID,
 		ProductID: productID,
 		Quantity:  qty,
 	}
 
-	if err := s.DB.Create(&item).Error; err != nil {
+	if err := s.Repo.CreateCartItem(newItem); err != nil {
 		return nil, err
 	}
 
 	return s.GetCart(userID, authorizationHeader)
 }
 
-func (s *Service) ReduceItem(userID uint, productID uint) error {
-	if productID == 0 {
-		return errors.New("product id is required")
-	}
-
-	var cart Cart
-	if err := s.DB.Where("user_id = ?", userID).First(&cart).Error; err != nil {
+func (s *Service) ReduceItem(userID uint,productID uint) error {
+	cart, err := s.Repo.GetCartByUserID(userID)
+	if err != nil {
 		return errors.New("cart not found")
 	}
 
-	var item CartItem
+	item, err := s.Repo.GetCartItem(cart.ID, productID)
 
-	if err := s.DB.Where("cart_id = ? AND product_id = ?", cart.ID, productID).
-		First(&item).Error; err != nil {
+	if err != nil {
 		return errors.New("item not found")
 	}
 
 	if item.Quantity > 1 {
 		item.Quantity--
-		return s.DB.Save(&item).Error
+		return s.Repo.UpdateCartItem(item)
 	}
 
-	return s.DB.Delete(&item).Error
+	return s.Repo.DeleteCartItem(item)
 }
 
-func (s *Service) RemoveItem(userID uint, productID uint) error {
+func (s *Service) RemoveItem(
+	userID uint,
+	productID uint,
+) error {
+
 	if productID == 0 {
 		return errors.New("product id is required")
 	}
 
-	var cart Cart
-	if err := s.DB.Where("user_id = ?", userID).First(&cart).Error; err != nil {
+	cart, err := s.Repo.GetCartByUserID(userID)
+
+	if err != nil {
 		return errors.New("cart not found")
 	}
 
-	result := s.DB.Where("cart_id = ? AND product_id = ?", cart.ID, productID).
-		Delete(&CartItem{})
-	if result.Error != nil {
-		return result.Error
-	}
-
-	if result.RowsAffected == 0 {
-		return errors.New("item not found")
-	}
-
-	return nil
+	return s.Repo.DeleteCartItemByProductID(
+		cart.ID,
+		productID,
+	)
 }
 
 func (s *Service) ClearCart(userID uint) error {
 
-	var cart Cart
-	if err := s.DB.Where("user_id = ?", userID).First(&cart).Error; err != nil {
+	cart, err := s.Repo.GetCartByUserID(userID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
@@ -156,13 +147,14 @@ func (s *Service) ClearCart(userID uint) error {
 		return errors.New("failed to fetch cart")
 	}
 
-	return s.DB.Where("cart_id = ?", cart.ID).Delete(&CartItem{}).Error
+	return s.Repo.ClearCart(cart.ID)
 }
 
 func (s *Service) GetCart(userID uint, authorizationHeader string) (*CartResponse, error) {
 
-	var cart Cart
-	if err := s.DB.Where("user_id = ?", userID).First(&cart).Error; err != nil {
+	cart, err := s.Repo.GetCartByUserID(userID)
+	if err != nil {
+
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return emptyCartResponse(), nil
 		}
@@ -170,8 +162,8 @@ func (s *Service) GetCart(userID uint, authorizationHeader string) (*CartRespons
 		return nil, errors.New("failed to fetch cart")
 	}
 
-	var items []CartItem
-	if err := s.DB.Where("cart_id = ?", cart.ID).Find(&items).Error; err != nil {
+	items, err := s.Repo.GetCartItems(cart.ID)
+	if err != nil {
 		return nil, errors.New("failed to fetch cart items")
 	}
 
@@ -182,8 +174,9 @@ func (s *Service) GetCart(userID uint, authorizationHeader string) (*CartRespons
 
 		product, err := s.ProductClient.GetProduct(item.ProductID, authorizationHeader)
 		if err != nil {
-			continue
-		}
+    log.Printf("failed to fetch product %d: %v", item.ProductID, err)
+    continue
+}
 
 		image := ""
 		if len(product.ImageURLs) > 0 {
@@ -200,16 +193,16 @@ func (s *Service) GetCart(userID uint, authorizationHeader string) (*CartRespons
 			ImageURL:    image,
 			Price:       product.Price,
 			Quantity:    item.Quantity,
-			Total:       total,
+			Total:       total,			
 
 			ExpectedDelivery:  utils.GetExpectedDelivery(),
 		})
 	}
 	delivery := ""
 
-if len(responseItems) > 0 {
-	delivery = utils.GetExpectedDelivery()
-}
+	if len(responseItems) > 0 {
+		delivery = utils.GetExpectedDelivery()
+	}
 
 	return &CartResponse{
 		Items:            responseItems,

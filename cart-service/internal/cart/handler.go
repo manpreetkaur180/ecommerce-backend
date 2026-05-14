@@ -10,6 +10,12 @@ type Handler struct {
 	Service *Service
 }
 
+func NewHandler(service *Service) *Handler {
+	return &Handler{
+		Service: service,
+	}
+}
+
 func (h *Handler) AddToCart(c *fiber.Ctx) error {
 
 	userID, ok := c.Locals("user_id").(uint)
@@ -20,6 +26,13 @@ func (h *Handler) AddToCart(c *fiber.Ctx) error {
 	var req AddToCartRequest
 	if err := c.BodyParser(&req); err != nil {
 		return utils.ErrorResponse(c, 400, "invalid request body")
+	}
+	if req.ProductID == 0 {
+		return utils.ErrorResponse(c, 400, "product id is required")
+	}
+
+	if req.Quantity < 1 {
+		return utils.ErrorResponse(c, 400, "quantity must be at least 1")
 	}
 
 	cart, err := h.Service.AddToCart(
@@ -67,8 +80,13 @@ func (h *Handler) ReduceItem(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return utils.ErrorResponse(c, 400, "invalid request body")
 	}
-
-	err := h.Service.ReduceItem(userID, req.ProductID)
+	if req.ProductID == 0 {
+		return utils.ErrorResponse(c, 400, "product id is required")
+	}
+	err := h.Service.ReduceItem(
+		userID,
+		req.ProductID,
+	)
 	if err != nil {
 		return utils.ErrorResponse(c, 400, err.Error())
 	}
