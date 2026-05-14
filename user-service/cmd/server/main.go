@@ -39,13 +39,15 @@ func main() {
 	)
 	user.SeedAdmin(db)
 
-	// redis
+	
 	rdb := config.ConnectRedis()
 
-	// init layers
-	userService := user.NewService(db, rdb)
+	userRepo := user.NewRepository(db)
+	userService := user.NewService(userRepo, rdb)
 	userHandler := user.NewHandler(userService)
-	sellerService := seller.NewService(db)
+
+	sellerRepo := seller.NewRepository(db)
+	sellerService := seller.NewService(sellerRepo)
 	sellerHandler := seller.NewHandler(sellerService)
 
 	// register routes
