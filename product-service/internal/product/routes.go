@@ -31,6 +31,7 @@ func RegisterRoutes(
 		"/products/:id",
 		handler.GetProductByID,
 	)
+	buyer.Post("/products/bulk", handler.GetProductsByIDs)
 
 	// -----------------------------
 	// SELLER ROUTES

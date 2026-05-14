@@ -432,3 +432,16 @@ func (s *Service) DeleteProduct(
 
 	return nil
 }
+func (s *Service) GetProductsByIDs(ids []uint) ([]Product, error) {
+	var products []Product
+
+	if err := s.DB.Where(
+		"id IN ? AND is_active = ?",
+		ids,
+		true,
+	).Find(&products).Error; err != nil {
+		return nil, errors.New("failed to fetch products")
+	}
+
+	return products, nil
+}

@@ -15,6 +15,11 @@ func main() {
 		log.Fatal("JWT_SECRET is required")
 	}
 
+	productServiceURL := os.Getenv("PRODUCT_SERVICE_URL")
+	if productServiceURL == "" {
+		log.Fatal("PRODUCT_SERVICE_URL is required (e.g. http://localhost:3004 or http://product-service:3004)")
+	}
+
 	app := fiber.New()
 
 	// DB
@@ -26,12 +31,7 @@ func main() {
 	// MIGRATE
 	migrateDB(db)
 
-	// product client
-	productServiceURL := os.Getenv("PRODUCT_SERVICE_URL")
-	if productServiceURL == "" {
-		productServiceURL = "http://product-service:3004"
-	}
-
+	// product client (base URL from PRODUCT_SERVICE_URL)
 	productClient := cart.NewProductClient(productServiceURL)
 
 	// REPOSITORY

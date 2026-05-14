@@ -2,7 +2,7 @@ package cart
 
 import (
 	"errors"
-	"log"
+
 	"cart-service/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -29,14 +29,16 @@ func (s *Service) AddToCart(
 	authorizationHeader string,
 ) (*CartResponse, error) {
 
-
-
-	product, err := s.ProductClient.GetProduct(
-		productID,
+	products, err := s.ProductClient.GetProducts(
+		[]uint{productID},
 		authorizationHeader,
 	)
-
 	if err != nil {
+		return nil, errors.New("product not found")
+	}
+
+	product, exists := products[productID]
+	if !exists {
 		return nil, errors.New("product not found")
 	}
 
@@ -45,96 +47,142 @@ func (s *Service) AddToCart(
 	}
 
 	cart, err := s.Repo.GetCartByUserID(userID)
-
 	if err != nil {
-
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("failed to fetch cart")
 		}
 
 		cart, err = s.Repo.CreateCart(userID)
-
 		if err != nil {
 			return nil, errors.New("failed to create cart")
 		}
 	}
 
 	item, err := s.Repo.GetCartItem(cart.ID, productID)
-
 	if err == nil {
-
 		newQty := item.Quantity + qty
-
 		if newQty > product.Stock {
 			return nil, errors.New("insufficient stock")
 		}
 
 		item.Quantity = newQty
-
 		if err := s.Repo.UpdateCartItem(item); err != nil {
 			return nil, err
 		}
+	} else {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
 
-		return s.GetCart(userID, authorizationHeader)
+		newItem := &CartItem{
+			CartID:    cart.ID,
+			ProductID: productID,
+			Quantity:  qty,
+		}
+
+		if err := s.Repo.CreateCartItem(newItem); err != nil {
+			return nil, err
+		}
 	}
 
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
+	items, err := s.Repo.GetCartItems(cart.ID)
+	if err != nil {
 		return nil, err
 	}
 
-	newItem := &CartItem{
-		CartID:    cart.ID,
-		ProductID: productID,
-		Quantity:  qty,
-	}
-
-	if err := s.Repo.CreateCartItem(newItem); err != nil {
-		return nil, err
-	}
-
-	return s.GetCart(userID, authorizationHeader)
+	return s.buildCartResponse(items, authorizationHeader)
 }
 
-func (s *Service) ReduceItem(userID uint,productID uint) error {
+func (s *Service) ReduceItem(
+	userID uint,
+	productID uint,
+	authorizationHeader string,
+) (*CartItemResponse, error) {
+
 	cart, err := s.Repo.GetCartByUserID(userID)
 	if err != nil {
-		return errors.New("cart not found")
+		return nil, errors.New("cart not found")
 	}
 
 	item, err := s.Repo.GetCartItem(cart.ID, productID)
-
 	if err != nil {
-		return errors.New("item not found")
+		return nil, errors.New("item not found")
 	}
 
 	if item.Quantity > 1 {
 		item.Quantity--
-		return s.Repo.UpdateCartItem(item)
+		if err := s.Repo.UpdateCartItem(item); err != nil {
+			return nil, err
+		}
+
+		products, err := s.ProductClient.GetProducts(
+			[]uint{productID},
+			authorizationHeader,
+		)
+		if err != nil {
+			return nil, errors.New("product not found")
+		}
+
+		product, exists := products[productID]
+		if !exists {
+			return nil, errors.New("product not found")
+		}
+
+		resp := cartItemResponseFromProduct(product, item.Quantity)
+		return &resp, nil
 	}
 
-	return s.Repo.DeleteCartItem(item)
+	if err := s.Repo.DeleteCartItem(item); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
-func (s *Service) IncreaseItem(userID uint, productID uint, authHeader string) error {
+
+func (s *Service) IncreaseItem(
+	userID uint,
+	productID uint,
+	authorizationHeader string,
+) (*CartItemResponse, error) {
+
 	cart, err := s.Repo.GetCartByUserID(userID)
 	if err != nil {
-		return errors.New("cart not found")
+		return nil, errors.New("cart not found")
 	}
 
 	item, err := s.Repo.GetCartItem(cart.ID, productID)
 	if err != nil {
-		return errors.New("item not found")
+		return nil, errors.New("item not found")
 	}
 
-	product, err := s.ProductClient.GetProduct(productID, authHeader)
+	products, err := s.ProductClient.GetProducts(
+		[]uint{productID},
+		authorizationHeader,
+	)
 	if err != nil {
-		return errors.New("product not found")
+		return nil, errors.New("product not found")
+	}
+
+	product, exists := products[productID]
+	if !exists {
+		return nil, errors.New("product not found")
 	}
 
 	if item.Quantity+1 > product.Stock {
-		return errors.New("insufficient stock")
+		return nil, errors.New("insufficient stock")
 	}
 
-	return s.Repo.IncrementCartItemQty(cart.ID, productID)
+	if err := s.Repo.IncrementCartItemQty(cart.ID, productID); err != nil {
+		return nil, err
+	}
+
+	updatedItem, err := s.Repo.GetCartItem(cart.ID, productID)
+	if err != nil {
+		return nil, errors.New("failed to fetch updated item")
+	}
+
+	resp := cartItemResponseFromProduct(product, updatedItem.Quantity)
+	return &resp, nil
 }
 
 func (s *Service) RemoveItem(
@@ -142,20 +190,12 @@ func (s *Service) RemoveItem(
 	productID uint,
 ) error {
 
-	if productID == 0 {
-		return errors.New("product id is required")
-	}
-
 	cart, err := s.Repo.GetCartByUserID(userID)
-
 	if err != nil {
 		return errors.New("cart not found")
 	}
 
-	return s.Repo.DeleteCartItemByProductID(
-		cart.ID,
-		productID,
-	)
+	return s.Repo.DeleteCartItemByProductID(cart.ID, productID)
 }
 
 func (s *Service) ClearCart(userID uint) error {
@@ -172,11 +212,13 @@ func (s *Service) ClearCart(userID uint) error {
 	return s.Repo.ClearCart(cart.ID)
 }
 
-func (s *Service) GetCart(userID uint, authorizationHeader string) (*CartResponse, error) {
+func (s *Service) GetCart(
+	userID uint,
+	authorizationHeader string,
+) (*CartResponse, error) {
 
 	cart, err := s.Repo.GetCartByUserID(userID)
 	if err != nil {
-
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return emptyCartResponse(), nil
 		}
@@ -189,39 +231,63 @@ func (s *Service) GetCart(userID uint, authorizationHeader string) (*CartRespons
 		return nil, errors.New("failed to fetch cart items")
 	}
 
+	return s.buildCartResponse(items, authorizationHeader)
+}
+
+func cartItemResponseFromProduct(product ProductDTO, quantity int) CartItemResponse {
+	image := ""
+	if len(product.ImageURLs) > 0 {
+		image = product.ImageURLs[0]
+	}
+
+	total := product.Price * float64(quantity)
+
+	return CartItemResponse{
+		ProductID:        product.ID,
+		Title:            product.Title,
+		Description:      product.Description,
+		ImageURL:         image,
+		Price:            product.Price,
+		Quantity:         quantity,
+		Total:            total,
+		ExpectedDelivery: utils.GetExpectedDelivery(),
+	}
+}
+
+func (s *Service) buildCartResponse(
+	items []CartItem,
+	authorizationHeader string,
+) (*CartResponse, error) {
+
+	if len(items) == 0 {
+		return emptyCartResponse(), nil
+	}
+
+	productIDs := make([]uint, len(items))
+	for i, item := range items {
+		productIDs[i] = item.ProductID
+	}
+
+	productsMap, err := s.ProductClient.GetProducts(productIDs, authorizationHeader)
+	if err != nil {
+		return nil, err
+	}
+
 	responseItems := []CartItemResponse{}
 	var subtotal float64
 
 	for _, item := range items {
-
-		product, err := s.ProductClient.GetProduct(item.ProductID, authorizationHeader)
-		if err != nil {
-    log.Printf("failed to fetch product %d: %v", item.ProductID, err)
-    continue
-}
-
-		image := ""
-		if len(product.ImageURLs) > 0 {
-			image = product.ImageURLs[0]
+		product, exists := productsMap[item.ProductID]
+		if !exists {
+			continue
 		}
 
-		total := product.Price * float64(item.Quantity)
-		subtotal += total
-
-		responseItems = append(responseItems, CartItemResponse{
-			ProductID:   product.ID,
-			Title:       product.Title,
-			Description: product.Description,
-			ImageURL:    image,
-			Price:       product.Price,
-			Quantity:    item.Quantity,
-			Total:       total,			
-
-			ExpectedDelivery:  utils.GetExpectedDelivery(),
-		})
+		line := cartItemResponseFromProduct(product, item.Quantity)
+		subtotal += line.Total
+		responseItems = append(responseItems, line)
 	}
-	delivery := ""
 
+	delivery := ""
 	if len(responseItems) > 0 {
 		delivery = utils.GetExpectedDelivery()
 	}
@@ -230,10 +296,9 @@ func (s *Service) GetCart(userID uint, authorizationHeader string) (*CartRespons
 		Items:            responseItems,
 		Subtotal:         subtotal,
 		Total:            subtotal,
-		ExpectedDelivery:  delivery,
+		ExpectedDelivery: delivery,
 	}, nil
 }
-
 func emptyCartResponse() *CartResponse {
 	return &CartResponse{
 		Items:            []CartItemResponse{},

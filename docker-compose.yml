@@ -101,6 +101,8 @@ services:
     container_name: cart-service
     ports:
       - "3005:3005"
+    environment:
+      PRODUCT_SERVICE_URL: http://product-service:3004
     env_file:
       - ./cart-service/.env
     depends_on:

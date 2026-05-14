@@ -83,15 +83,18 @@ func (h *Handler) ReduceItem(c *fiber.Ctx) error {
 	if req.ProductID == 0 {
 		return utils.ErrorResponse(c, 400, "product id is required")
 	}
-	err := h.Service.ReduceItem(
-		userID,
-		req.ProductID,
-	)
+
+	item, err := h.Service.ReduceItem(userID, req.ProductID, c.Get("Authorization"))
 	if err != nil {
 		return utils.ErrorResponse(c, 400, err.Error())
 	}
 
-	return utils.SuccessResponse(c, 200, "cart item quantity reduced successfully", nil)
+	// item was removed (qty was 1)
+	if item == nil {
+		return utils.SuccessResponse(c, 200, "cart item removed successfully", nil)
+	}
+
+	return utils.SuccessResponse(c, 200, "cart item quantity reduced successfully", item)
 }
 
 func (h *Handler) RemoveItem(c *fiber.Ctx) error {
@@ -104,6 +107,10 @@ func (h *Handler) RemoveItem(c *fiber.Ctx) error {
 	productID, err := c.ParamsInt("product_id")
 	if err != nil {
 		return utils.ErrorResponse(c, 400, "invalid product id")
+	}
+
+	if productID == 0 {
+		return utils.ErrorResponse(c, 400, "product id is required")
 	}
 
 	err = h.Service.RemoveItem(userID, uint(productID))
@@ -128,6 +135,7 @@ func (h *Handler) ClearCart(c *fiber.Ctx) error {
 
 	return utils.SuccessResponse(c, 200, "cart cleared successfully", nil)
 }
+
 func (h *Handler) IncreaseItem(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -143,9 +151,10 @@ func (h *Handler) IncreaseItem(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, 400, "product id is required")
 	}
 
-	if err := h.Service.IncreaseItem(userID, req.ProductID, c.Get("Authorization")); err != nil {
+	item, err := h.Service.IncreaseItem(userID, req.ProductID, c.Get("Authorization"))
+	if err != nil {
 		return utils.ErrorResponse(c, 400, err.Error())
 	}
 
-	return utils.SuccessResponse(c, 200, "cart item quantity increased successfully", nil)
+	return utils.SuccessResponse(c, 200, "cart item quantity increased successfully", item)
 }

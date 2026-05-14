@@ -15,7 +15,27 @@ func NewHandler(service *Service) *Handler {
 		Service: service,
 	}
 }
+func (h *Handler) GetProductsByIDs(c *fiber.Ctx) error {
 
+	var req struct {
+		ProductIDs []uint `json:"product_ids"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, 400, "invalid request body")
+	}
+
+	if len(req.ProductIDs) == 0 {
+		return utils.ErrorResponse(c, 400, "product ids are required")
+	}
+
+	products, err := h.Service.GetProductsByIDs(req.ProductIDs)
+	if err != nil {
+		return utils.ErrorResponse(c, 500, err.Error())
+	}
+
+	return utils.SuccessResponse(c, 200, "products fetched successfully", products)
+}
 func (h *Handler) CreateProduct(c *fiber.Ctx) error {
 
 	var req CreateProductRequest

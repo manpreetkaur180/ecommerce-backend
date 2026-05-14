@@ -27,3 +27,15 @@ type CartResponse struct {
 	Total            float64            `json:"total"`
 	ExpectedDelivery string             `json:"expected_delivery"`
 }
+type ProductDTO struct {
+	ID          uint     `json:"id"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Price       float64  `json:"price"`
+	Stock       int      `json:"stock"`
+	ImageURLs   []string `json:"image_urls"`
+}
+
+type BulkProductsResponse struct {
+	Data []ProductDTO `json:"data"`
+}

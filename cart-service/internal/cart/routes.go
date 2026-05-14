@@ -36,4 +36,5 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 
 	// CLEAR CART
 	cart.Delete("/", handler.ClearCart)
+
 }
