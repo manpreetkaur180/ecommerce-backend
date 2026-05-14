@@ -30,7 +30,8 @@ func main() {
 	)
 
 	// initialize layers
-	productService := product.NewService(db)
+	repo := product.NewRepository(db)
+	productService := product.NewService(repo)
 	productHandler := product.NewHandler(productService)
 
 	// routes
