@@ -67,4 +67,9 @@ func RegisterRoutes(
 		"/products/:id",
 		handler.DeleteProduct,
 	)
+	internal := api.Group("/internal/products")
+
+internal.Get("/:id/inventory", handler.GetInventory)
+
+internal.Patch("/:id/reduce-stock", handler.ReduceStock)
 }

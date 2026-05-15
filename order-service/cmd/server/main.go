@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"order-service/config"
-	// "order-service/internal/order"
+	"order-service/internal/order"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -29,22 +29,17 @@ func main() {
 
 	// AUTO MIGRATION
 	db.AutoMigrate(
-		// &order.Order{},
-		// &order.OrderItem{},
-		// &order.Address{},
-	)
+	&order.Order{},
+	&order.OrderItem{},
+)
 
-	// // REPOSITORY
-	// repo := order.NewRepository(db)
+repo := order.NewRepository(db)
 
-	// // SERVICE
-	// service := order.NewService(repo)
+service := order.NewService(repo)
 
-	// // HANDLER
-	// handler := order.NewHandler(service)
+handler := order.NewHandler(service)
 
-	// // ROUTES
-	// order.RegisterRoutes(app, handler)
+order.RegisterRoutes(app, handler)
 
 	// PORT
 	port := os.Getenv("PORT")

@@ -127,3 +127,11 @@ func productToResponse(p Product) ProductResponse {
 		UpdatedAt:       p.UpdatedAt,
 	}
 }
+type InventoryResponse struct {
+	ProductID uint `json:"product_id"`
+	Stock     int  `json:"stock"`
+}
+
+type ReduceStockRequest struct {
+	Quantity int `json:"quantity"`
+}

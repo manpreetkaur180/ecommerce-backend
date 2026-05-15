@@ -298,3 +298,37 @@ func (s *Service) GetProductsByIDs(ids []uint) ([]ProductResponse, error) {
 	}
 	return out, nil
 }
+func (s *Service) GetInventory(
+	productID uint,
+) (*InventoryResponse, error) {
+
+	product, err := s.Repo.FindProductByID(productID)
+	if err != nil {
+		return nil, errors.New("product not found")
+	}
+
+	return &InventoryResponse{
+		ProductID: product.ID,
+		Stock:     product.Stock,
+	}, nil
+}
+func (s *Service) ReduceStock(
+	productID uint,
+	quantity int,
+) error {
+
+	if quantity <= 0 {
+		return errors.New("invalid quantity")
+	}
+
+	err := s.Repo.ReduceStock(
+		productID,
+		quantity,
+	)
+
+	if err != nil {
+		return errors.New("insufficient stock")
+	}
+
+	return nil
+}

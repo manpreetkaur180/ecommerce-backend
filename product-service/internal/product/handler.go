@@ -214,3 +214,54 @@ func (h *Handler) DeleteProduct(c *fiber.Ctx) error {
 
 	return utils.SuccessResponse(c, 200, "product deactivated successfully", nil)
 }
+func (h *Handler) GetInventory(c *fiber.Ctx) error {
+
+	productID, err := c.ParamsInt("id")
+	if err != nil {
+		return utils.ErrorResponse(c, 400, "invalid product id")
+	}
+
+	inventory, err := h.Service.GetInventory(uint(productID))
+	if err != nil {
+		return utils.ErrorResponse(c, 404, err.Error())
+	}
+
+	return utils.SuccessResponse(
+		c,
+		200,
+		"inventory fetched successfully",
+		inventory,
+	)
+}
+func (h *Handler) ReduceStock(c *fiber.Ctx) error {
+
+	productID, err := c.ParamsInt("id")
+	if err != nil {
+		return utils.ErrorResponse(c, 400, "invalid product id")
+	}
+
+	type reqBody struct {
+		Quantity int `json:"quantity"`
+	}
+
+	var req reqBody
+
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, 400, "invalid body")
+	}
+
+	if err := h.Service.ReduceStock(
+		uint(productID),
+		req.Quantity,
+	); err != nil {
+
+		return utils.ErrorResponse(c, 400, err.Error())
+	}
+
+	return utils.SuccessResponse(
+		c,
+		200,
+		"stock updated successfully",
+		nil,
+	)
+}

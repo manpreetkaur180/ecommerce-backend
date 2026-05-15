@@ -78,3 +78,42 @@ func (r *Repository) FindActiveByIDs(ids []uint) ([]Product, error) {
 func (r *Repository) Save(p *Product) error {
 	return r.DB.Save(p).Error
 }
+func (r *Repository) FindProductByID(
+	id uint,
+) (*Product, error) {
+
+	var product Product
+
+	err := r.DB.First(&product, id).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &product, nil
+}
+func (r *Repository) ReduceStock(
+	productID uint,
+	quantity int,
+) error {
+
+	result := r.DB.Exec(`
+		UPDATE products
+		SET stock = stock - ?
+		WHERE id = ?
+		AND stock >= ?
+	`,
+		quantity,
+		productID,
+		quantity,
+	)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrInvalidData
+	}
+
+	return nil
+}
