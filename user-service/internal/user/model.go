@@ -2,6 +2,12 @@ package user
 
 import "time"
 
+const (
+	RoleBuyer  = "buyer"
+	RoleSeller = "seller"
+	RoleAdmin  = "admin"
+)
+
 type User struct {
 	ID         uint   `gorm:"primaryKey"`
 	Name       string `gorm:"not null"`
@@ -25,31 +31,6 @@ type EmailVerification struct {
 	CreatedAt time.Time
 }
 
-type RegisterRequest struct {
-	Name            string `json:"name"`
-	Email           string `json:"email"`
-	Phone           string `json:"phone"`
-	Password        string `json:"password"`
-	ConfirmPassword string `json:"confirm_password"`
-}
-
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
-	Password string `json:"password"`
-}
-
-type OTPLoginRequest struct {
-	Email string `json:"email"`
-	Phone string `json:"phone"`
-	OTP   string `json:"otp"`
-}
-
-type OTPData struct {
-	Code    string
-	Expires time.Time
-}
-
 type PasswordResetVerification struct {
 	ID        uint      `gorm:"primaryKey"`
 	UserID    uint      `gorm:"not null"`
@@ -66,27 +47,6 @@ type PasswordReset struct {
 	CreatedAt time.Time
 }
 
-type ForgotPasswordRequest struct {
-	Email string `json:"email"`
-}
-
-type ResetPasswordRequest struct {
-	Token           string `json:"token"`
-	NewPassword     string `json:"new_password"`
-	ConfirmPassword string `json:"confirm_password"`
-}
-
-type UpdatePasswordRequest struct {
-	Email string `json:"email"`
-}
-
-type UpdatePasswordFormRequest struct {
-	Token              string `json:"token"`
-	OldPassword        string `json:"old_password"`
-	NewPassword        string `json:"new_password"`
-	ConfirmNewPassword string `json:"confirm_new_password"`
-}
-
 type PasswordUpdate struct {
 	ID        uint      `gorm:"primaryKey"`
 	UserID    uint      `gorm:"not null"`
@@ -94,16 +54,33 @@ type PasswordUpdate struct {
 	ExpiresAt time.Time `gorm:"not null"`
 	CreatedAt time.Time
 }
+type Address struct {
+	ID uint `gorm:"primaryKey"`
 
-type UpdatePasswordConfirmRequest struct {
-	Token              string `json:"token"`
-	OldPassword        string `json:"old_password"`
-	NewPassword        string `json:"new_password"`
-	ConfirmNewPassword string `json:"confirm_new_password"`
+	UserID uint `gorm:"not null;index"`
+
+	FullName string `gorm:"not null"`
+
+	Phone string `gorm:"not null"`
+
+	AddressLine1 string `gorm:"not null"`
+
+	AddressLine2 string
+
+	Landmark string
+
+	City string `gorm:"not null"`
+
+	State string `gorm:"not null"`
+
+	Country string `gorm:"not null"`
+
+	Pincode string `gorm:"not null"`
+
+	AddressType string `gorm:"default:'home'"` 
+
+	IsDefault bool `gorm:"default:false"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
-
-const (
-	RoleBuyer  = "buyer"
-	RoleSeller = "seller"
-	RoleAdmin  = "admin"
-)

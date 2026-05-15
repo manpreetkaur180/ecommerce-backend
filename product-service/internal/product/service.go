@@ -6,116 +6,48 @@ import (
 	"product-service/pkg/utils"
 
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 type Service struct {
-	DB *gorm.DB
+	Repo *Repository
 }
 
-func NewService(db *gorm.DB) *Service {
-	return &Service{
-		DB: db,
-	}
+func NewService(repo *Repository) *Service {
+	return &Service{Repo: repo}
 }
 
 func (s *Service) CreateProduct(
 	sellerID uint,
 	req CreateProductRequest,
-) (*Product, error) {
-
-	// -------------------------
-	// NORMALIZATION
-	// -------------------------
-
-	req.Title = utils.NormalizeTitle(req.Title)
-	req.Description = utils.NormalizeDescription(req.Description)
-	req.Category = utils.NormalizeCategory(req.Category)
-	req.ImageURLs = utils.NormalizeStringSlice(req.ImageURLs)
-	req.Offers = utils.NormalizeOptionalText(req.Offers)
-	req.Warranty = utils.NormalizeOptionalText(req.Warranty)
-
-	// -------------------------
-	// VALIDATIONS
-	// -------------------------
-
-	if err := utils.ValidateTitle(req.Title); err != nil {
-		return nil, err
-	}
-
-	if err := utils.ValidateDescription(req.Description); err != nil {
-		return nil, err
-	}
-
-	if err := utils.ValidatePrice(req.Price); err != nil {
-		return nil, err
-	}
-
-	if err := utils.ValidateStock(req.Stock); err != nil {
-		return nil, err
-	}
-
-	if err := utils.ValidateCategory(req.Category); err != nil {
-		return nil, err
-	}
-
-	if err := utils.ValidateImageURLs(req.ImageURLs); err != nil {
-		return nil, err
-	}
-
-	if err := utils.ValidateOffers(req.Offers); err != nil {
-		return nil, err
-	}
-
-	if err := utils.ValidateWarranty(req.Warranty); err != nil {
-		return nil, err
-	}
-
-	// -------------------------
-	// CREATE PRODUCT
-	// -------------------------
+) (*ProductResponse, error) {
 
 	product := Product{
-		SellerID: sellerID,
-
-		Title:       req.Title,
-		Description: req.Description,
-		Price:       req.Price,
-		Stock:       req.Stock,
-		Category:    req.Category,
-
-		ImageURLs: datatypes.JSONSlice[string](req.ImageURLs),
-
-		Offers: req.Offers,
-
+		SellerID:        sellerID,
+		Title:           req.Title,
+		Description:     req.Description,
+		Price:           req.Price,
+		Stock:           req.Stock,
+		Category:        req.Category,
+		ImageURLs:       datatypes.JSONSlice[string](req.ImageURLs),
+		Offers:          req.Offers,
 		ReturnAvailable: req.ReturnAvailable,
-
-		Warranty: req.Warranty,
-
-		IsActive: true,
+		Warranty:        req.Warranty,
+		IsActive:        true,
 	}
 
-	if err := s.DB.Create(&product).Error; err != nil {
+	if err := s.Repo.Create(&product); err != nil {
 		return nil, errors.New("failed to create product")
 	}
 
-	return &product, nil
+	resp := productToResponse(product)
+	return &resp, nil
 }
 
-func (s *Service) GetAllProducts(
-	page int,
-) (*BuyerProductsPaginatedResponse, error) {
-
-	var products []Product
-
+func (s *Service) GetAllProducts(page int) (*BuyerProductsPaginatedResponse, error) {
 	const limit = 5
 
-	var total int64
-
-	if err := s.DB.Model(&Product{}).
-		Where("is_active = ?", true).
-		Count(&total).Error; err != nil {
-
+	total, err := s.Repo.CountActive()
+	if err != nil {
 		return nil, errors.New("failed to count products")
 	}
 
@@ -123,42 +55,31 @@ func (s *Service) GetAllProducts(
 	page = normalizePage(page, totalPages)
 	offset := (page - 1) * limit
 
-	if err := s.DB.Where(
-		"is_active = ?",
-		true,
-	).Order("created_at desc").
-		Limit(limit).
-		Offset(offset).
-		Find(&products).Error; err != nil {
-
+	products, err := s.Repo.FindActiveOrderedPaginated(limit, offset)
+	if err != nil {
 		return nil, errors.New("failed to fetch products")
 	}
 
-	var response []BuyerProductResponse
-
-	for _, product := range products {
-
+	response := make([]BuyerProductResponse, 0, len(products))
+	for _, p := range products {
 		image := ""
-
-		if len(product.ImageURLs) > 0 {
-			image = product.ImageURLs[0]
+		if len(p.ImageURLs) > 0 {
+			image = p.ImageURLs[0]
 		}
 
 		response = append(response, BuyerProductResponse{
-			ID:          product.ID,
-			Title:       product.Title,
-			ImageURL:    image,
-			Description: product.Description,
-			Price:       product.Price,
-			Offers:      product.Offers,
-
+			ID:               p.ID,
+			Title:            p.Title,
+			ImageURL:         image,
+			Description:      p.Description,
+			Price:            p.Price,
+			Offers:           p.Offers,
 			ExpectedDelivery: utils.GetExpectedDelivery(),
 		})
 	}
 
 	return &BuyerProductsPaginatedResponse{
 		Products: response,
-
 		Pagination: PaginationMeta{
 			Page:       page,
 			Limit:      limit,
@@ -168,58 +89,41 @@ func (s *Service) GetAllProducts(
 	}, nil
 }
 
-func (s *Service) GetProductByID(
-	productID uint,
-) (*BuyerProductDetailResponse, error) {
-
-	var product Product
-
-	if err := s.DB.Where(
-		"id = ? AND is_active = ?",
-		productID,
-		true,
-	).First(&product).Error; err != nil {
-
+func (s *Service) GetProductByID(productID uint) (*BuyerProductDetailResponse, error) {
+	p, err := s.Repo.FirstActiveByID(productID)
+	if err != nil {
 		return nil, errors.New("product not found")
 	}
 
-	response := BuyerProductDetailResponse{
-		ID:              product.ID,
-		Title:           product.Title,
-		Description:     product.Description,
-		Price:           product.Price,
-		Category:        product.Category,
-		ImageURLs:       product.ImageURLs,
-		Offers:          product.Offers,
-		Rating:          product.Rating,
-		ReturnAvailable: product.ReturnAvailable,
-		Warranty:        product.Warranty,
-		InStock:         product.Stock > 0,
-		Stock:           product.Stock,
-
+	return &BuyerProductDetailResponse{
+		ID:               p.ID,
+		Title:            p.Title,
+		Description:      p.Description,
+		Price:            p.Price,
+		Category:         p.Category,
+		ImageURLs:        []string(p.ImageURLs),
+		Offers:           p.Offers,
+		Rating:           p.Rating,
+		ReturnAvailable:  p.ReturnAvailable,
+		Warranty:         p.Warranty,
+		InStock:          p.Stock > 0,
+		Stock:            p.Stock,
 		ExpectedDelivery: utils.GetExpectedDelivery(),
-	}
-
-	return &response, nil
+	}, nil
 }
 
 func (s *Service) GetSellerProductByID(
 	sellerID uint,
 	productID uint,
-) (*Product, error) {
+) (*ProductResponse, error) {
 
-	var product Product
-
-	if err := s.DB.Where(
-		"id = ? AND seller_id = ?",
-		productID,
-		sellerID,
-	).First(&product).Error; err != nil {
-
+	p, err := s.Repo.FirstBySellerAndProductID(sellerID, productID)
+	if err != nil {
 		return nil, errors.New("product not found")
 	}
 
-	return &product, nil
+	resp := productToResponse(*p)
+	return &resp, nil
 }
 
 func (s *Service) GetSellerProducts(
@@ -227,16 +131,10 @@ func (s *Service) GetSellerProducts(
 	page int,
 ) (*SellerProductsPaginatedResponse, error) {
 
-	var products []Product
-
 	const limit = 5
 
-	var total int64
-
-	if err := s.DB.Model(&Product{}).
-		Where("seller_id = ?", sellerID).
-		Count(&total).Error; err != nil {
-
+	total, err := s.Repo.CountBySeller(sellerID)
+	if err != nil {
 		return nil, errors.New("failed to count seller products")
 	}
 
@@ -244,20 +142,18 @@ func (s *Service) GetSellerProducts(
 	page = normalizePage(page, totalPages)
 	offset := (page - 1) * limit
 
-	if err := s.DB.Where(
-		"seller_id = ?",
-		sellerID,
-	).Order("created_at desc").
-		Limit(limit).
-		Offset(offset).
-		Find(&products).Error; err != nil {
-
+	products, err := s.Repo.FindBySellerPaginated(sellerID, limit, offset)
+	if err != nil {
 		return nil, errors.New("failed to fetch seller products")
 	}
 
-	return &SellerProductsPaginatedResponse{
-		Products: products,
+	out := make([]ProductResponse, 0, len(products))
+	for _, p := range products {
+		out = append(out, productToResponse(p))
+	}
 
+	return &SellerProductsPaginatedResponse{
+		Products: out,
 		Pagination: PaginationMeta{
 			Page:       page,
 			Limit:      limit,
@@ -271,7 +167,6 @@ func getTotalPages(total int64, limit int) int {
 	if total == 0 {
 		return 0
 	}
-
 	return int(math.Ceil(float64(total) / float64(limit)))
 }
 
@@ -279,11 +174,9 @@ func normalizePage(page int, totalPages int) int {
 	if page < 1 {
 		return 1
 	}
-
 	if totalPages > 0 && page > totalPages {
 		return totalPages
 	}
-
 	return page
 }
 
@@ -291,93 +184,67 @@ func (s *Service) UpdateProduct(
 	sellerID uint,
 	productID uint,
 	req UpdateProductRequest,
-) (*Product, error) {
+) (*ProductResponse, error) {
 
-	var product Product
-
-	// ownership validation
-	if err := s.DB.Where(
-		"id = ? AND seller_id = ?",
-		productID,
-		sellerID,
-	).First(&product).Error; err != nil {
-
+	product, err := s.Repo.FirstBySellerAndProductID(sellerID, productID)
+	if err != nil {
 		return nil, errors.New("product not found")
 	}
 
-	// -------------------------
-	// UPDATE FIELDS
-	// -------------------------
+	// Ownership is established; normalize/validate each provided field in the
+	// same order as before the repository refactor (load first, then validate).
 
 	if req.Title != nil {
-
 		title := utils.NormalizeTitle(*req.Title)
-
 		if err := utils.ValidateTitle(title); err != nil {
 			return nil, err
 		}
-
 		product.Title = title
 	}
 
 	if req.Description != nil {
-
 		description := utils.NormalizeDescription(*req.Description)
-
 		if err := utils.ValidateDescription(description); err != nil {
 			return nil, err
 		}
-
 		product.Description = description
 	}
 
 	if req.Price != nil {
-
 		if err := utils.ValidatePrice(*req.Price); err != nil {
 			return nil, err
 		}
-
 		product.Price = *req.Price
 	}
 
 	if req.Stock != nil {
-
 		if err := utils.ValidateStock(*req.Stock); err != nil {
 			return nil, err
 		}
-
 		product.Stock = *req.Stock
 	}
 
 	if req.Category != nil {
-
 		category := utils.NormalizeCategory(*req.Category)
-
 		if err := utils.ValidateCategory(category); err != nil {
 			return nil, err
 		}
-
 		product.Category = category
 	}
 
 	if req.ImageURLs != nil {
 		imageURLs := utils.NormalizeStringSlice(*req.ImageURLs)
-
 		if err := utils.ValidateImageURLs(imageURLs); err != nil {
 			return nil, err
 		}
-
 		product.ImageURLs = datatypes.JSONSlice[string](imageURLs)
 	}
 
 	if req.Offers != nil {
-
 		offers := utils.NormalizeOptionalText(*req.Offers)
-
 		if err := utils.ValidateOffers(offers); err != nil {
 			return nil, err
 		}
-
 		product.Offers = offers
 	}
 
@@ -386,13 +253,10 @@ func (s *Service) UpdateProduct(
 	}
 
 	if req.Warranty != nil {
-
 		warranty := utils.NormalizeOptionalText(*req.Warranty)
-
 		if err := utils.ValidateWarranty(warranty); err != nil {
 			return nil, err
 		}
-
 		product.Warranty = warranty
 	}
 
@@ -400,35 +264,37 @@ func (s *Service) UpdateProduct(
 		product.IsActive = *req.IsActive
 	}
 
-	if err := s.DB.Save(&product).Error; err != nil {
+	if err := s.Repo.Save(product); err != nil {
 		return nil, errors.New("failed to update product")
 	}
 
-	return &product, nil
+	resp := productToResponse(*product)
+	return &resp, nil
 }
 
-func (s *Service) DeleteProduct(
-	sellerID uint,
-	productID uint,
-) error {
-
-	var product Product
-
-	// ownership validation
-	if err := s.DB.Where(
-		"id = ? AND seller_id = ?",
-		productID,
-		sellerID,
-	).First(&product).Error; err != nil {
-
+func (s *Service) DeleteProduct(sellerID uint, productID uint) error {
+	product, err := s.Repo.FirstBySellerAndProductID(sellerID, productID)
+	if err != nil {
 		return errors.New("product not found")
 	}
 
 	product.IsActive = false
-
-	if err := s.DB.Save(&product).Error; err != nil {
+	if err := s.Repo.Save(product); err != nil {
 		return errors.New("failed to deactivate product")
 	}
 
 	return nil
+}
+
+func (s *Service) GetProductsByIDs(ids []uint) ([]ProductResponse, error) {
+	products, err := s.Repo.FindActiveByIDs(ids)
+	if err != nil {
+		return nil, errors.New("failed to fetch products")
+	}
+
+	out := make([]ProductResponse, 0, len(products))
+	for _, p := range products {
+		out = append(out, productToResponse(p))
+	}
+	return out, nil
 }

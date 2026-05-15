@@ -52,7 +52,7 @@ services:
       - "5672:5672"
       - "15672:15672"
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -70,7 +70,7 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
-      
+
   product-db:
     image: postgres:15
     container_name: product-db
@@ -82,7 +82,7 @@ services:
       - "5434:5432"
     volumes:
       - product_postgres_data:/var/lib/postgresql/data
-  
+
   product-service:
     build:
       context: ./product-service
@@ -94,13 +94,14 @@ services:
     env_file:
       - ./product-service/.env
 
-
   cart-service:
     build:
       context: ./cart-service
     container_name: cart-service
     ports:
       - "3005:3005"
+    environment:
+      PRODUCT_SERVICE_URL: http://product-service:3004
     env_file:
       - ./cart-service/.env
     depends_on:
@@ -118,7 +119,31 @@ services:
     volumes:
       - cart_postgres_data:/var/lib/postgresql/data
 
+  order-db:
+    image: postgres:15
+    container_name: order-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: order_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - order_postgres_data:/var/lib/postgresql/data
+
+  order-service:
+    build:
+      context: ./order-service
+    container_name: order-service
+    ports:
+      - "3006:3006"
+    env_file:
+      - ./order-service/.env
+    depends_on:
+      - order-db
+
 volumes:
   postgres_data:
   product_postgres_data:
   cart_postgres_data:
+  order_postgres_data:

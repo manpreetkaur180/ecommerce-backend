@@ -31,6 +31,7 @@ func main() {
 
 	db.AutoMigrate(
 		&user.User{},
+		&user.Address{},
 		&user.EmailVerification{},
 		&user.PasswordResetVerification{},
 		&user.PasswordReset{},
@@ -39,25 +40,22 @@ func main() {
 	)
 	user.SeedAdmin(db)
 
-	// redis
+	
 	rdb := config.ConnectRedis()
 
-	// init layers
-	userService := user.NewService(db, rdb)
+	userRepo := user.NewRepository(db)
+	userService := user.NewService(userRepo, rdb)
 	userHandler := user.NewHandler(userService)
-	sellerService := seller.NewService(db)
+
+	sellerRepo := seller.NewRepository(db)
+	sellerService := seller.NewService(sellerRepo)
 	sellerHandler := seller.NewHandler(sellerService)
 
 	// register routes
 	user.RegisterRoutes(app, userHandler)
 	seller.RegisterRoutes(app, sellerHandler)
 
-	// health route
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status": "ok",
-		})
-	})
+
 
 	port := os.Getenv("PORT")
 	if port == "" {

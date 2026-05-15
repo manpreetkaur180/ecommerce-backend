@@ -3,16 +3,21 @@ package main
 import (
 	"log"
 	"os"
-
 	"cart-service/config"
 	"cart-service/internal/cart"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 func main() {
 	if os.Getenv("JWT_SECRET") == "" {
 		log.Fatal("JWT_SECRET is required")
+	}
+
+	productServiceURL := os.Getenv("PRODUCT_SERVICE_URL")
+	if productServiceURL == "" {
+		log.Fatal("PRODUCT_SERVICE_URL is required (e.g. http://localhost:3004 or http://product-service:3004)")
 	}
 
 	app := fiber.New()
@@ -23,29 +28,22 @@ func main() {
 		log.Fatal("DB connection failed")
 	}
 
-	// auto migrate
-	db.AutoMigrate(&cart.Cart{}, &cart.CartItem{})
+	// MIGRATE
+	migrateDB(db)
 
-	// product client
-	productServiceURL := os.Getenv("PRODUCT_SERVICE_URL")
-	if productServiceURL == "" {
-		productServiceURL = "http://product-service:3004"
-	}
-
+	// product client (base URL from PRODUCT_SERVICE_URL)
 	productClient := cart.NewProductClient(productServiceURL)
 
-	// service
-	service := &cart.Service{
-		DB:            db,
-		ProductClient: productClient,
-	}
+	// REPOSITORY
+	repo := cart.NewRepository(db)
 
-	// handler
-	handler := &cart.Handler{
-		Service: service,
-	}
+	// SERVICE
+	service := cart.NewService(repo, productClient)
 
-	// routes
+	// HANDLER
+	handler := cart.NewHandler(service)
+
+	// ROUTES
 	cart.RegisterRoutes(app, handler)
 
 	port := os.Getenv("PORT")
@@ -55,4 +53,15 @@ func main() {
 
 	log.Println("Cart service running on port", port)
 	log.Fatal(app.Listen(":" + port))
+}
+
+func migrateDB(db *gorm.DB) {
+	if err := db.AutoMigrate(
+		&cart.Cart{},
+		&cart.CartItem{},
+	); err != nil {
+		log.Fatal("Migration failed:", err)
+	}
+
+	log.Println("Database migrated successfully")
 }
