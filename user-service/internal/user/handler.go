@@ -40,6 +40,57 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	)
 }
 
+func (h *Handler) AddAddress(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return utils.ErrorResponse(c, 401, "unauthorized")
+	}
+
+	var req AddAddressRequest
+
+	// parse body
+	if err := c.BodyParser(&req); err != nil {
+		return utils.ErrorResponse(c, 400, "invalid request body")
+	}
+
+	// normalization FIRST
+	req.Phone = utils.NormalizePhone(req.Phone)
+	req.AddressType = strings.ToLower(strings.TrimSpace(req.AddressType))
+
+	// struct validation (ONLY source of truth for validation)
+	if err := utils.ValidateStruct(&req); err != nil {
+		return utils.ErrorResponse(c, 400, err.Error())
+	}
+
+	address, err := h.Service.AddAddress(userID, req)
+	if err != nil {
+		return utils.ErrorResponse(c, 400, err.Error())
+	}
+
+	return utils.SuccessResponse(c, 200, "address added successfully", address)
+}
+func (h *Handler) GetAddresses(c *fiber.Ctx) error {
+
+	userID, ok := c.Locals("user_id").(uint)
+
+	if !ok {
+		return utils.ErrorResponse(c, 401, "unauthorized")
+	}
+
+	addresses, err := h.Service.GetUserAddresses(userID)
+
+	if err != nil {
+		return utils.ErrorResponse(c, 500, "failed to fetch addresses")
+	}
+
+	return utils.SuccessResponse(
+		c,
+		200,
+		"addresses fetched successfully",
+		addresses,
+	)
+}
+
 // -------- LOGIN --------
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var req LoginRequest

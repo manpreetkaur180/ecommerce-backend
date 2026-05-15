@@ -9,6 +9,43 @@ type Repository struct {
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{DB: db}
 }
+func (r *Repository) CreateAddress(address *Address) error {
+	return r.DB.Create(address).Error
+}
+
+func (r *Repository) RemoveDefaultAddresses(userID uint) error {
+	return r.DB.Model(&Address{}).
+		Where("user_id = ?", userID).
+		Update("is_default", false).Error
+}
+
+func (r *Repository) FindAddressesByUserID(userID uint) ([]Address, error) {
+	var addresses []Address
+
+	err := r.DB.
+		Where("user_id = ?", userID).
+		Order("is_default desc, created_at desc").
+		Find(&addresses).Error
+
+	return addresses, err
+}
+
+func (r *Repository) CountUserAddresses(userID uint) (int64, error) {
+	var count int64
+
+	err := r.DB.Model(&Address{}).
+		Where("user_id = ?", userID).
+		Count(&count).Error
+
+	return count, err
+}
+
+func (r *Repository) UnsetDefaultAddresses(userID uint) error {
+	return r.DB.Model(&Address{}).
+		Where("user_id = ? AND is_default = ?", userID, true).
+		Update("is_default", false).Error
+}
+
 
 func (r *Repository) CreateUser(u *User) error {
 	return r.DB.Create(u).Error

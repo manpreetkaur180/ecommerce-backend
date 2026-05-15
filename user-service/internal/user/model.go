@@ -54,3 +54,33 @@ type PasswordUpdate struct {
 	ExpiresAt time.Time `gorm:"not null"`
 	CreatedAt time.Time
 }
+type Address struct {
+	ID uint `gorm:"primaryKey"`
+
+	UserID uint `gorm:"not null;index"`
+
+	FullName string `gorm:"not null"`
+
+	Phone string `gorm:"not null"`
+
+	AddressLine1 string `gorm:"not null"`
+
+	AddressLine2 string
+
+	Landmark string
+
+	City string `gorm:"not null"`
+
+	State string `gorm:"not null"`
+
+	Country string `gorm:"not null"`
+
+	Pincode string `gorm:"not null"`
+
+	AddressType string `gorm:"default:'home'"` 
+
+	IsDefault bool `gorm:"default:false"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}

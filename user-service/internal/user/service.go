@@ -57,6 +57,63 @@ func publicUserServiceURL() string {
 	return strings.TrimRight(baseURL, "/")
 }
 
+func (s *Service) AddAddress(userID uint, req AddAddressRequest) (*Address, error) {
+
+	if req.AddressType == "" {
+		req.AddressType = "home"
+	}
+	req.FullName = strings.TrimSpace(req.FullName)
+	req.AddressLine1 = strings.TrimSpace(req.AddressLine1)
+	req.AddressLine2 = strings.TrimSpace(req.AddressLine2)
+	req.Landmark = strings.TrimSpace(req.Landmark)
+	req.City = strings.TrimSpace(req.City)
+	req.State = strings.TrimSpace(req.State)
+	req.Country = strings.TrimSpace(req.Country)
+	req.Pincode = strings.TrimSpace(req.Pincode)
+
+	// if no addresses exist -> force first address as default
+	addressCount, err := s.Repo.CountUserAddresses(userID)
+	if err != nil {
+		return nil, errors.New("failed to validate address")
+	}
+
+	if addressCount == 0 {
+		req.IsDefault = true
+	}
+
+	// only unset old default IF new address is default
+	if req.IsDefault {
+
+		err := s.Repo.UnsetDefaultAddresses(userID)
+		if err != nil {
+			return nil, errors.New("failed to update default address")
+		}
+	}
+
+	address := Address{
+		UserID:       userID,
+		FullName:     req.FullName,
+		Phone:        req.Phone,
+		AddressLine1: req.AddressLine1,
+		AddressLine2: req.AddressLine2,
+		Landmark:     req.Landmark,
+		City:         req.City,
+		State:        req.State,
+		Country:      req.Country,
+		Pincode:      req.Pincode,
+		AddressType:  req.AddressType,
+		IsDefault:    req.IsDefault,
+	}
+
+	if err := s.Repo.CreateAddress(&address); err != nil {
+		return nil, errors.New("failed to add address")
+	}
+
+	return &address, nil
+}
+func (s *Service) GetUserAddresses(userID uint) ([]Address, error) {
+	return s.Repo.FindAddressesByUserID(userID)
+}
 func (s *Service) SendOTP(
 	user *User,
 	identifier string,

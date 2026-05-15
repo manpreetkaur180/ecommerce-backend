@@ -24,7 +24,8 @@ func RegisterRoutes(app *fiber.App, handler *Handler) {
 			})
 		},
 	})
-
+	userRoutes.Post("/address",middleware.RequireAuth(),handler.AddAddress)
+	userRoutes.Get("/address",middleware.RequireAuth(),handler.GetAddresses	)
 	userRoutes.Post("/register", authLimiter, handler.Register)
 	userRoutes.Post("/login", authLimiter, handler.Login)
 	userRoutes.Post("/refresh-token", middleware.RequireAuth(), handler.RefreshToken)
